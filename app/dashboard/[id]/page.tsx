@@ -7,112 +7,74 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { ArrowLeft, Calendar, User, Mail, FileText, CheckCircle2, FileDown } from 'lucide-react'
+import { useState } from "react"
+import { useResponse } from "@/lib/hooks/use-responses"
+import { responsesAPI } from "@/lib/api/responses"
+import type { ResponseAnswer } from "@/lib/api/responses"
 
-// Mock data - same as dashboard
-const mockResponses = [
-  {
-    _id: "1",
-    surveyTitle: "Patient Satisfaction Survey 2024",
-    interviewerName: "Dr. Sarah Schmidt",
-    interviewerEmail: "sarah.schmidt@ukbonn.de",
-    intervieweeName: "Anna Mueller",
-    intervieweeEmail: "anna.m@example.com",
-    intervieweePhone: "+49 228 123 4567",
-    status: "completed",
-    createdAt: "2024-01-15T10:30:00Z",
-    completedAt: "2024-01-15T11:45:00Z",
-    hasSignature: true,
-    responses: [
-      { question: "How satisfied are you with your treatment?", answer: "Very satisfied" },
-      { question: "Would you recommend our facility?", answer: "Yes, definitely" },
-      { question: "Additional comments", answer: "The staff was very professional and caring." }
-    ]
-  },
-  {
-    _id: "2",
-    surveyTitle: "Clinical Trial Feedback",
-    interviewerName: "Dr. Michael Weber",
-    interviewerEmail: "michael.weber@ukbonn.de",
-    intervieweeName: "Thomas Becker",
-    intervieweeEmail: "t.becker@example.com",
-    intervieweePhone: "+49 228 234 5678",
-    status: "draft",
-    createdAt: "2024-01-16T09:15:00Z",
-    completedAt: null,
-    hasSignature: false,
-    responses: []
-  },
-  {
-    _id: "3",
-    surveyTitle: "Patient Satisfaction Survey 2024",
-    interviewerName: "Dr. Sarah Schmidt",
-    interviewerEmail: "sarah.schmidt@ukbonn.de",
-    intervieweeName: "Maria Fischer",
-    intervieweeEmail: "m.fischer@example.com",
-    intervieweePhone: "+49 228 345 6789",
-    status: "completed",
-    createdAt: "2024-01-16T14:20:00Z",
-    completedAt: "2024-01-16T15:10:00Z",
-    hasSignature: true,
-    responses: [
-      { question: "How satisfied are you with your treatment?", answer: "Satisfied" },
-      { question: "Would you recommend our facility?", answer: "Yes" },
-      { question: "Additional comments", answer: "Good experience overall." }
-    ]
-  },
-  {
-    _id: "4",
-    surveyTitle: "Treatment Outcome Assessment",
-    interviewerName: "Dr. Klaus Hoffmann",
-    interviewerEmail: "klaus.hoffmann@ukbonn.de",
-    intervieweeName: "Peter Wagner",
-    intervieweeEmail: "p.wagner@example.com",
-    intervieweePhone: "+49 228 456 7890",
-    status: "completed",
-    createdAt: "2024-01-17T08:00:00Z",
-    completedAt: "2024-01-17T09:30:00Z",
-    hasSignature: true,
-    responses: [
-      { question: "How effective was the treatment?", answer: "Very effective" },
-      { question: "Any side effects?", answer: "Minor side effects, manageable" },
-      { question: "Overall satisfaction", answer: "Highly satisfied" }
-    ]
-  },
-  {
-    _id: "5",
-    surveyTitle: "Clinical Trial Feedback",
-    interviewerName: "Dr. Michael Weber",
-    interviewerEmail: "michael.weber@ukbonn.de",
-    intervieweeName: "Sabine Schulz",
-    intervieweeEmail: "s.schulz@example.com",
-    intervieweePhone: "+49 228 567 8901",
-    status: "draft",
-    createdAt: "2024-01-17T13:45:00Z",
-    completedAt: null,
-    hasSignature: false,
-    responses: []
-  }
-]
+function formatAnswer(value: string | string[] | number | boolean): string {
+  if (Array.isArray(value)) return value.join(", ")
+  if (typeof value === "object" && value !== null) return JSON.stringify(value)
+  return String(value ?? "")
+}
 
 export default function ResponseDetailsPage() {
   const params = useParams()
   const router = useRouter()
-  const id = params.id as string
+  const id = (params?.id as string) ?? ""
 
-  const response = mockResponses.find(r => r._id === id)
+  const { response, loading, error } = useResponse(id)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const handlePrintPDF = () => {
     window.print()
   }
 
-  if (!response) {
+  const handleDownloadPDF = async () => {
+    if (!id) return
+    setPdfLoading(true)
+    try {
+      const blob = await responsesAPI.exportPDF(id) as Blob
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `response-${id}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error("PDF export failed", e)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
+  const completedAt = response?.submittedAt ?? (response as { completedAt?: string })?.completedAt ?? null
+  const hasSignature = !!(response?.signature || response?.signedAt)
+  const answersList: { question: string; answer: string }[] = (response?.answers ?? []).map(
+    (a: ResponseAnswer) => ({ question: a.question, answer: formatAnswer(a.answer) })
+  )
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader />
+        <main className="container mx-auto py-6 px-4">
+          <Card className="p-12">
+            <div className="text-center text-muted-foreground">Loading response...</div>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  if (error || !response) {
     return (
       <div className="min-h-screen bg-background">
         <DashboardHeader />
         <main className="container mx-auto py-6 px-4">
           <Card className="p-12">
             <div className="text-center space-y-2">
-              <p className="text-lg font-medium">Response not found</p>
+              <p className="text-lg font-medium">{error || "Response not found"}</p>
               <Button onClick={() => router.push("/dashboard")} variant="outline">
                 Back to Dashboard
               </Button>
@@ -123,7 +85,7 @@ export default function ResponseDetailsPage() {
     )
   }
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "-"
     return new Date(dateString).toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -133,6 +95,8 @@ export default function ResponseDetailsPage() {
       minute: "2-digit"
     })
   }
+
+  const interviewerEmail = (response as { interviewerEmail?: string }).interviewerEmail
 
   return (
     <div className="min-h-screen bg-background">
@@ -152,18 +116,29 @@ export default function ResponseDetailsPage() {
             </Button>
             <div className="flex-1">
               <h1 className="text-3xl font-bold">Response Details</h1>
-              <p className="text-muted-foreground">ID: {response._id}</p>
+              <p className="text-muted-foreground">ID: {response._id ?? id}</p>
             </div>
             <Badge variant={response.status === "completed" ? "default" : "secondary"}>
               {response.status}
             </Badge>
             <Button 
-              onClick={handlePrintPDF}
+              onClick={handleDownloadPDF}
               variant="outline"
+              disabled={pdfLoading}
               className="print:hidden"
+              title="Download PDF from server"
             >
               <FileDown className="h-4 w-4 mr-2" />
-              Download PDF
+              {pdfLoading ? "Downloading…" : "Download PDF"}
+            </Button>
+            <Button 
+              onClick={handlePrintPDF}
+              variant="ghost"
+              size="sm"
+              className="print:hidden"
+              title="Print current page"
+            >
+              Print
             </Button>
           </div>
 
@@ -193,7 +168,7 @@ export default function ResponseDetailsPage() {
                   <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                    <p>{formatDate(response.completedAt)}</p>
+                    <p>{formatDate(completedAt)}</p>
                   </div>
                 </div>
               </div>
@@ -203,7 +178,7 @@ export default function ResponseDetailsPage() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Signature Status</p>
                   <Badge variant="outline" className="mt-1">
-                    {response.hasSignature ? "Signed" : "Not Signed"}
+                    {hasSignature ? "Signed" : "Not Signed"}
                   </Badge>
                 </div>
               </div>
@@ -223,13 +198,15 @@ export default function ResponseDetailsPage() {
                   <p className="font-medium">{response.interviewerName}</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Email</p>
-                  <p>{response.interviewerEmail}</p>
+              {interviewerEmail && (
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Email</p>
+                    <p>{interviewerEmail}</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -264,14 +241,14 @@ export default function ResponseDetailsPage() {
           </Card>
 
           {/* Survey Responses */}
-          {response.responses.length > 0 && (
+          {answersList.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Survey Responses</CardTitle>
                 <CardDescription>Answers provided by the interviewee</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {response.responses.map((item, index) => (
+                {answersList.map((item, index) => (
                   <div key={index}>
                     {index > 0 && <Separator className="mb-6" />}
                     <div className="space-y-2">
@@ -284,7 +261,7 @@ export default function ResponseDetailsPage() {
             </Card>
           )}
 
-          {response.hasSignature && (
+          {hasSignature && (
             <Card>
               <CardHeader>
                 <CardTitle>Signature</CardTitle>
@@ -300,7 +277,7 @@ export default function ResponseDetailsPage() {
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Signed by: {response.intervieweeName}</span>
-                      <span>Date: {formatDate(response.completedAt)}</span>
+                      <span>Date: {formatDate(completedAt)}</span>
                     </div>
                   </div>
                 </div>

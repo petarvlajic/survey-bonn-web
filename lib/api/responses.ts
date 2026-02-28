@@ -27,12 +27,35 @@ export interface SurveyResponse {
 export const responsesAPI = {
   getAll: async (filters?: {
     status?: string
+    draft?: boolean
     surveyId?: string
     startDate?: string
     endDate?: string
+    completedAtFrom?: string
+    completedAtTo?: string
     search?: string
+    page?: number
+    limit?: number
+    sortBy?: "createdAt" | "completedAt"
+    sortOrder?: "asc" | "desc"
   }) => {
-    const { data } = await apiClient.get("/responses", { params: filters })
+    const params: Record<string, string | number | boolean | undefined> = { ...filters }
+    if (params.status !== undefined) {
+      params.draft = params.status === "draft"
+      delete params.status
+    }
+    if (params.startDate !== undefined) {
+      params.completedAtFrom = params.startDate as string
+      delete params.startDate
+    }
+    if (params.endDate !== undefined) {
+      params.completedAtTo = params.endDate as string
+      delete params.endDate
+    }
+    if (params.limit === undefined) params.limit = 50
+    if (params.sortBy === undefined) params.sortBy = "createdAt"
+    if (params.sortOrder === undefined) params.sortOrder = "desc"
+    const { data } = await apiClient.get("/responses", { params })
     return data
   },
 
@@ -56,7 +79,11 @@ export const responsesAPI = {
     return data
   },
 
-  exportCSV: async (filters?: any) => {
+  exportCSV: async (filters?: {
+    draft?: boolean
+    completedAtFrom?: string
+    completedAtTo?: string
+  }) => {
     const { data } = await apiClient.get("/responses/export/csv", {
       params: filters,
       responseType: "blob",
