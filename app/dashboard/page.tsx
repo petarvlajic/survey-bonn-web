@@ -20,7 +20,8 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { useResponses } from "@/lib/hooks/use-responses"
 import { useSurveys } from "@/lib/hooks/use-survey"
 import { responsesAPI } from "@/lib/api/responses"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "@/components/ui/chart"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
 
 export default function DashboardPage() {
   const router = useRouter()
