@@ -9,7 +9,12 @@ export interface ApiError {
 export function handleApiError(error: unknown): ApiError {
   if (error instanceof AxiosError) {
     const status = error.response?.status
-    const message = error.response?.data?.message || error.message
+    const data = error.response?.data as { message?: string; details?: Array<{ field?: string; message?: string }> } | undefined
+    let message = data?.message || error.message
+    if (data?.details?.length) {
+      const first = data.details[0]
+      message = `${message}: ${first.field ?? "field"} — ${first.message ?? ""}`
+    }
 
     switch (status) {
       case 400:

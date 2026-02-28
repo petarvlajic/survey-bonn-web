@@ -2,9 +2,11 @@ import { apiClient } from "./axios"
 
 export interface ResponseAnswer {
   questionId: string
-  question: string
-  answer: string | string[] | number | boolean | File
-  type: string
+  question?: string
+  answer?: string | string[] | number | boolean | File
+  /** API returns answers with `value` instead of `answer` */
+  value?: string | string[] | number | boolean
+  type?: string
 }
 
 export interface SurveyResponse {

@@ -11,6 +11,7 @@ import { useState } from "react"
 import { useResponse } from "@/lib/hooks/use-responses"
 import { responsesAPI } from "@/lib/api/responses"
 import type { ResponseAnswer } from "@/lib/api/responses"
+import { getSurveyFieldLabel } from "@/lib/survey-field-labels"
 
 function formatAnswer(value: string | string[] | number | boolean): string {
   if (Array.isArray(value)) return value.join(", ")
@@ -50,9 +51,12 @@ export default function ResponseDetailsPage() {
 
   const completedAt = response?.submittedAt ?? (response as { completedAt?: string })?.completedAt ?? null
   const hasSignature = !!(response?.signature || response?.signedAt)
-  const answersList: { question: string; answer: string }[] = (response?.answers ?? []).map(
-    (a: ResponseAnswer) => ({ question: a.question, answer: formatAnswer(a.answer) })
-  )
+  const rawAnswers = response?.answers ?? []
+  const answersList: { question: string; answer: string }[] = rawAnswers.map((a: ResponseAnswer) => {
+    const label = getSurveyFieldLabel(a.questionId ?? "")
+    const val = a.answer !== undefined ? a.answer : a.value
+    return { question: label, answer: formatAnswer(val as string | string[] | number | boolean) }
+  })
 
   if (loading) {
     return (
@@ -247,11 +251,11 @@ export default function ResponseDetailsPage() {
                 <CardTitle>Survey Responses</CardTitle>
                 <CardDescription>Answers provided by the interviewee</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-0">
                 {answersList.map((item, index) => (
-                  <div key={index}>
-                    {index > 0 && <Separator className="mb-6" />}
-                    <div className="space-y-2">
+                  <div key={index} className="mb-0">
+                    {index > 0 && <Separator className="my-3" />}
+                    <div className="space-y-2 py-0">
                       <p className="font-medium">{item.question}</p>
                       <p className="text-muted-foreground">{item.answer}</p>
                     </div>

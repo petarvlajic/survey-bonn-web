@@ -113,6 +113,22 @@ export default function NewSurveyPage() {
     setFormData({ ...formData, [field]: newValues })
   }
 
+  /** Build answers for API: skip empty strings/arrays so optional fields don't fail validation */
+  const buildAnswers = (data: SurveyData, includeSignature = false) =>
+    Object.entries(data)
+      .filter(([key, value]) => {
+        if (key === "signature") return includeSignature && value !== ""
+        if (value === "" || value === null || value === undefined) return false
+        if (Array.isArray(value) && value.length === 0) return false
+        return true
+      })
+      .map(([key, value]) => ({
+        questionId: key,
+        question: key,
+        answer: value,
+        type: typeof value === "number" ? "NUMBER" : "TEXT",
+      }))
+
   const handleAutoSave = useCallback(async (data: SurveyData) => {
     try {
       await responsesAPI.create({
@@ -121,12 +137,7 @@ export default function NewSurveyPage() {
         interviewerName: "Current User",
         intervieweeName: data.name,
         intervieweeEmail: "",
-        answers: Object.entries(data).map(([key, value]) => ({
-          questionId: key,
-          question: key,
-          answer: value,
-          type: "text",
-        })),
+        answers: buildAnswers(data, false),
         status: "draft",
       })
       setLastSaved(new Date())
@@ -154,12 +165,7 @@ export default function NewSurveyPage() {
         interviewerName: "Current User",
         intervieweeName: formData.name,
         intervieweeEmail: "",
-        answers: Object.entries(formData).map(([key, value]) => ({
-          questionId: key,
-          question: key,
-          answer: value,
-          type: "text",
-        })),
+        answers: buildAnswers(formData, false),
         status: "draft",
       })
 
@@ -183,12 +189,7 @@ export default function NewSurveyPage() {
         interviewerName: "Current User",
         intervieweeName: formData.name,
         intervieweeEmail: "",
-        answers: Object.entries(formData).map(([key, value]) => ({
-          questionId: key,
-          question: key,
-          answer: value,
-          type: "text",
-        })),
+        answers: buildAnswers(formData, true),
         status: "completed",
         signature: formData.signature,
       })

@@ -49,8 +49,9 @@ export default function DashboardPage() {
   const { surveys } = useSurveys()
 
   const surveyTitles = useMemo(() => {
-    const fromResponses = [...new Set(responses.map(r => r.surveyTitle).filter(Boolean))]
-    const fromSurveys = surveys.map(s => s.title)
+    const fromResponses = [...new Set(responses.map(r => r.surveyTitle).filter(Boolean))] as string[]
+    const surveyList = Array.isArray(surveys) ? surveys : []
+    const fromSurveys = surveyList.map((s: { title?: string }) => s.title).filter((t): t is string => Boolean(t))
     const combined = [...new Set([...fromResponses, ...fromSurveys])].sort()
     return combined
   }, [responses, surveys])

@@ -54,7 +54,15 @@ export function useResponses(filters?: Parameters<typeof responsesAPI.getAll>[0]
     try {
       setLoading(true)
       const raw = await responsesAPI.getAll(filters)
+      console.log("[useResponses] Raw from server:", raw)
+      console.log("[useResponses] keys:", raw && typeof raw === "object" ? Object.keys(raw as object) : "n/a", "total:", (raw as Record<string, unknown>)?.total)
       const list = normalizeResponsesList(raw)
+      console.log("[useResponses] Normalized list length:", list.length)
+      if (list.length > 0) {
+        const first = list[0]
+        console.log("[useResponses] First item keys:", Object.keys(first))
+        console.log("[useResponses] First item _id, answers length:", first._id, first.answers?.length, "answers sample:", first.answers?.[0])
+      }
       setResponses(list)
       const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
       setTotal(Number(obj.total) ?? list.length)
