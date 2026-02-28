@@ -1,6 +1,8 @@
 import axios from "axios"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api"
+// Same API as mobile app (uk-bonn-survey). Override with NEXT_PUBLIC_API_BASE_URL for local dev.
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "https://survey-api.herz-check-bonn.de/api"
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
