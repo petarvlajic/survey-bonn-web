@@ -1,7 +1,6 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -28,17 +27,11 @@ export function DashboardHeader() {
     <header className="border-b bg-background">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl overflow-hidden border-2 border-border bg-background flex-shrink-0 ring-2 ring-muted/20">
-              <Image
-                src="/logo.jpg"
-                alt="Cardio Check Bonn"
-                width={40}
-                height={40}
-                className="h-full w-full object-contain"
-              />
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold">
+              UK
             </div>
-            <span className="font-semibold text-lg">Cardio Check Bonn</span>
+            <span className="font-semibold text-lg">UK Bonn Survey</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             <Link href="/dashboard">
