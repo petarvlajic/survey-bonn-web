@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,11 +14,19 @@ import { useAuth } from "@/lib/hooks/use-auth"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setAuth } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get("reset") === "success") {
+      setSuccess("Password has been reset. You can now sign in.")
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +43,8 @@ export default function LoginPage() {
       setAuth(response.user, response.token)
       router.push("/dashboard")
     } catch (err: any) {
-      setError(err.response?.data?.message || "Login failed. Please try again.")
+      const data = err.response?.data
+      setError(data?.error || data?.message || "Login failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -70,7 +79,11 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                At least 8 characters, one uppercase, one lowercase, a number and a special character. Example: Test123!
+              </p>
             </div>
+            {success && <p className="text-sm text-green-600">{success}</p>}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing In..." : "Sign In"}

@@ -30,7 +30,8 @@ export default function ForgotPasswordPage() {
       await authAPI.forgotPassword(email)
       setSubmitted(true)
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to send reset email. Please try again.")
+      const data = err.response?.data
+      setError(data?.error || data?.message || "Failed to send reset email. Please try again.")
     } finally {
       setLoading(false)
     }

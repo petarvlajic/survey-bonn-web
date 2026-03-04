@@ -26,6 +26,15 @@ export default function SignupPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 8) return "Password must be at least 8 characters"
+    if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter"
+    if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter"
+    if (!/[0-9]/.test(password)) return "Password must contain at least one number"
+    if (!/[^A-Za-z0-9]/.test(password)) return "Password must contain at least one special character"
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -35,13 +44,20 @@ export default function SignupPage() {
       return
     }
 
+    const passwordErr = validatePassword(formData.password)
+    if (passwordErr) {
+      setError(passwordErr)
+      return
+    }
+
     try {
       setLoading(true)
       const response = await authAPI.signup(formData)
       setAuth(response.user, response.token)
       router.push("/dashboard")
     } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed. Please try again.")
+      const data = err.response?.data
+      setError(data?.error || data?.message || "Registration failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -96,6 +112,9 @@ export default function SignupPage() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                At least 8 characters, one uppercase, one lowercase, a number and a special character. Example: Test123!
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone (Optional)</Label>
