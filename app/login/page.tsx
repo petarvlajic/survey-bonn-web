@@ -69,6 +69,9 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Only @ukbonn.de email addresses are accepted.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

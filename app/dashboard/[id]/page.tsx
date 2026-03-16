@@ -176,6 +176,18 @@ export default function ResponseDetailsPage() {
                   </div>
                 </div>
               </div>
+              {response.pid && (
+                <>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Patient ID (PID)</p>
+                      <p>{response.pid}</p>
+                    </div>
+                  </div>
+                </>
+              )}
               <Separator />
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="h-5 w-5 text-muted-foreground mt-0.5" />

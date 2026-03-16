@@ -31,22 +31,33 @@ export default function DashboardPage() {
   const [surveyFilter, setSurveyFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
+  const [pidFilter, setPidFilter] = useState("")
+  const [hasSignatureFilter, setHasSignatureFilter] = useState<"all" | "signed" | "unsigned">("all")
   const [exporting, setExporting] = useState(false)
   const [page, setPage] = useState(1)
   const [sortBy, setSortBy] = useState<"createdAt" | "completedAt">("createdAt")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
-  const apiFilters = useMemo(() => ({
-    page,
-    sortBy,
-    sortOrder,
-    ...(statusFilter !== "all" && { status: statusFilter }),
-    ...(dateFrom && { completedAtFrom: dateFrom }),
-    ...(dateTo && { completedAtTo: dateTo }),
-  }), [page, sortBy, sortOrder, statusFilter, dateFrom, dateTo])
+  const apiFilters = useMemo(
+    () => ({
+      page,
+      sortBy,
+      sortOrder,
+      ...(statusFilter !== "all" && { status: statusFilter }),
+      ...(dateFrom && { completedAtFrom: dateFrom }),
+      ...(dateTo && { completedAtTo: dateTo }),
+      ...(pidFilter.trim() && { pid: pidFilter.trim() }),
+      ...(hasSignatureFilter !== "all" && {
+        hasSignature: hasSignatureFilter === "signed",
+      }),
+    }),
+    [page, sortBy, sortOrder, statusFilter, dateFrom, dateTo, pidFilter, hasSignatureFilter],
+  )
 
   const { responses, total, page: currentPage, limit, loading, error, refetch } = useResponses(apiFilters)
   const { surveys } = useSurveys()
+
+  const hasSignature = (item: (typeof responses)[number]) => !!(item.signature || item.signedAt)
 
   const surveyTitles = useMemo(() => {
     const fromResponses = [...new Set(responses.map(r => r.surveyTitle).filter(Boolean))] as string[]
@@ -63,12 +74,16 @@ export default function DashboardPage() {
         item.intervieweeEmail?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = statusFilter === "all" || item.status === statusFilter
       const matchesSurvey = surveyFilter === "all" || item.surveyTitle === surveyFilter || item.surveyId === surveyFilter
-      return matchesSearch && matchesStatus && matchesSurvey
+      const matchesPid = !pidFilter.trim() || item.pid === pidFilter.trim()
+      const matchesSignature =
+        hasSignatureFilter === "all" ||
+        (hasSignatureFilter === "signed" && hasSignature(item)) ||
+        (hasSignatureFilter === "unsigned" && !hasSignature(item))
+      return matchesSearch && matchesStatus && matchesSurvey && matchesPid && matchesSignature
     })
-  }, [responses, searchQuery, statusFilter, surveyFilter])
+  }, [responses, searchQuery, statusFilter, surveyFilter, pidFilter, hasSignatureFilter])
 
-  const completedAt = (item: typeof filteredData[0]) => item.submittedAt ?? (item as any).completedAt ?? null
-  const hasSignature = (item: typeof filteredData[0]) => !!(item.signature || item.signedAt)
+  const completedAt = (item: (typeof responses)[number]) => item.submittedAt ?? (item as any).completedAt ?? null
 
   const analytics = useMemo(() => {
     const completed = filteredData.filter(r => r.status === "completed").length
@@ -112,9 +127,21 @@ export default function DashboardPage() {
   }
 
   const handleExportClient = () => {
-    const headers = ["ID", "Interviewer", "Interviewee", "Email", "Survey", "Status", "Created", "Completed", "Signature"]
+    const headers = [
+      "ID",
+      "PID",
+      "Interviewer",
+      "Interviewee",
+      "Email",
+      "Survey",
+      "Status",
+      "Created",
+      "Completed",
+      "Signature",
+    ]
     const rows = filteredData.map(item => [
       item._id,
+      item.pid ?? "",
       item.interviewerName,
       item.intervieweeName,
       item.intervieweeEmail,
@@ -122,7 +149,7 @@ export default function DashboardPage() {
       item.status,
       item.createdAt ? new Date(item.createdAt).toLocaleString() : "-",
       completedAt(item) ? new Date(completedAt(item)!).toLocaleString() : "-",
-      hasSignature(item) ? "Yes" : "No"
+      hasSignature(item) ? "Yes" : "No",
     ])
     const csv = [headers.map(escapeCsvCell), ...rows.map(r => r.map(escapeCsvCell))].map(row => row.join(",")).join("\n")
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" })
@@ -332,6 +359,32 @@ export default function DashboardPage() {
                 className="min-w-0"
               />
             </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Input
+                placeholder="Filter by PID..."
+                value={pidFilter}
+                onChange={(e) => {
+                  setPidFilter(e.target.value)
+                  setPage(1)
+                }}
+              />
+              <Select
+                value={hasSignatureFilter}
+                onValueChange={v => {
+                  setHasSignatureFilter(v as typeof hasSignatureFilter)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Signature filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All signatures</SelectItem>
+                  <SelectItem value="signed">Only signed</SelectItem>
+                  <SelectItem value="unsigned">Only unsigned</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <span className="text-sm text-muted-foreground">Sort:</span>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(v) => {
@@ -385,6 +438,7 @@ export default function DashboardPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
+                      <TableHead>PID</TableHead>
                       <TableHead>Interviewer</TableHead>
                       <TableHead>Interviewee</TableHead>
                       <TableHead>Survey</TableHead>
@@ -402,6 +456,7 @@ export default function DashboardPage() {
                         onClick={() => router.push(`/dashboard/${item._id}`)}
                       >
                         <TableCell className="font-mono text-sm">{item._id}</TableCell>
+                        <TableCell className="font-mono text-sm">{item.pid}</TableCell>
                         <TableCell>{item.interviewerName}</TableCell>
                         <TableCell>
                           <div>

@@ -11,6 +11,7 @@ export interface ResponseAnswer {
 
 export interface SurveyResponse {
   _id?: string
+  pid?: string
   surveyId: string
   surveyTitle: string
   interviewerName: string
@@ -31,6 +32,12 @@ export const responsesAPI = {
     status?: string
     draft?: boolean
     surveyId?: string
+    pid?: string
+    birthYearFrom?: number
+    birthYearTo?: number
+    diseases?: string[]
+    riskFactors?: string[]
+    hasSignature?: boolean
     startDate?: string
     endDate?: string
     completedAtFrom?: string
