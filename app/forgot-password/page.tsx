@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { authAPI } from "@/lib/api/auth"
+import { AuthShell } from "@/components/auth-shell"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -39,30 +40,35 @@ export default function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Check Your Email</CardTitle>
-            <CardDescription>We've sent password reset instructions to {email}</CardDescription>
+      <AuthShell>
+        <Card className="w-full rounded-2xl border-border/60 bg-card/95 shadow-xl shadow-black/[0.04] backdrop-blur-sm">
+          <CardHeader className="space-y-2 border-border/50 border-b pb-6">
+            <CardTitle className="text-2xl font-semibold tracking-tight">Check your inbox</CardTitle>
+            <CardDescription className="text-base leading-snug">
+              Password reset instructions were sent to{" "}
+              <span className="font-medium text-foreground">{email}</span>.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Link href="/login">
-              <Button className="w-full">Back to Sign In</Button>
+          <CardContent className="pt-6">
+            <Link href="/login" className="block">
+              <Button className="w-full font-medium shadow-sm">Back to sign in</Button>
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Forgot Password</CardTitle>
-          <CardDescription>Enter your UK Bonn email to reset your password</CardDescription>
+    <AuthShell>
+      <Card className="w-full rounded-2xl border-border/60 bg-card/95 shadow-xl shadow-black/[0.04] backdrop-blur-sm">
+        <CardHeader className="space-y-2 border-border/50 border-b pb-6">
+          <CardTitle className="text-2xl font-semibold tracking-tight">Reset password</CardTitle>
+          <CardDescription className="text-base leading-snug">
+            Enter your @ukbonn.de email. You will receive a link to choose a new password.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -79,17 +85,20 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Send Reset Link"}
+            <Button type="submit" className="w-full font-medium shadow-sm" disabled={loading}>
+              {loading ? "Sending…" : "Send reset link"}
             </Button>
-            <div className="text-sm text-center">
-              <Link href="/login" className="text-muted-foreground hover:text-foreground">
-                Back to Sign In
+            <div className="pt-1 text-center text-sm">
+              <Link
+                href="/login"
+                className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                Back to sign in
               </Link>
             </div>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   )
 }

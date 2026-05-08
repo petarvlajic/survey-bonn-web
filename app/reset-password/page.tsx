@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { authAPI } from "@/lib/api/auth"
+import { AuthShell } from "@/components/auth-shell"
 
 function ResetPasswordPageContent() {
   const router = useRouter()
@@ -63,13 +64,15 @@ function ResetPasswordPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
-          <CardDescription>Enter your new password below.</CardDescription>
+    <AuthShell>
+      <Card className="w-full rounded-2xl border-border/60 bg-card/95 shadow-xl shadow-black/[0.04] backdrop-blur-sm">
+        <CardHeader className="space-y-2 border-border/50 border-b pb-6">
+          <CardTitle className="text-2xl font-semibold tracking-tight">Choose a new password</CardTitle>
+          <CardDescription className="text-base leading-snug">
+            Pick a strong password you have not used for this dashboard before.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="newPassword">New password</Label>
@@ -95,24 +98,40 @@ function ResetPasswordPageContent() {
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Resetting..." : "Reset Password"}
+            <Button type="submit" className="w-full font-medium shadow-sm" disabled={loading}>
+              {loading ? "Updating…" : "Update password"}
             </Button>
-            <div className="text-sm text-center">
-              <Link href="/login" className="text-muted-foreground hover:text-foreground">
-                Back to Sign In
+            <div className="pt-1 text-center text-sm">
+              <Link
+                href="/login"
+                className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                Back to sign in
               </Link>
             </div>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
+  )
+}
+
+function ResetSuspenseFallback() {
+  return (
+    <AuthShell>
+      <div className="flex justify-center rounded-2xl border border-border/60 bg-card/95 py-14 shadow-xl shadow-black/[0.04]">
+        <div
+          aria-hidden
+          className="h-10 w-10 animate-pulse rounded-full bg-primary/20 ring-4 ring-primary/10"
+        />
+      </div>
+    </AuthShell>
   )
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-muted/30" />}>
+    <Suspense fallback={<ResetSuspenseFallback />}>
       <ResetPasswordPageContent />
     </Suspense>
   )

@@ -12,6 +12,7 @@ import Link from "next/link"
 import { authAPI } from "@/lib/api/auth"
 import { normalizeAuthUser } from "@/lib/auth/normalize-user"
 import { useAuth } from "@/lib/hooks/use-auth"
+import { AuthShell } from "@/components/auth-shell"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -65,13 +66,16 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 py-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-          <CardDescription>Register with your UK Bonn email address</CardDescription>
+    <AuthShell>
+      <Card className="w-full rounded-2xl border-border/60 bg-card/95 shadow-xl shadow-black/[0.04] backdrop-blur-sm">
+        <CardHeader className="space-y-2 border-border/50 border-b pb-6">
+          <CardTitle className="text-2xl font-semibold tracking-tight">Create account</CardTitle>
+          <CardDescription className="text-base leading-snug">
+            Register with your @ukbonn.de address. Fields marked required must be completed before
+            submitting.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-1 pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -138,17 +142,20 @@ export default function SignupPage() {
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating Account..." : "Create Account"}
+            <Button type="submit" className="w-full font-medium shadow-sm" disabled={loading}>
+              {loading ? "Creating account…" : "Submit registration"}
             </Button>
-            <div className="text-sm text-center">
-              <Link href="/login" className="text-muted-foreground hover:text-foreground">
-                Already have an account? Sign in
+            <div className="pt-1 text-center text-sm">
+              <Link
+                href="/login"
+                className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                Already registered? Sign in
               </Link>
             </div>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   )
 }

@@ -204,25 +204,40 @@ export default function DashboardPage() {
     })
   }
 
+  const surfaceCard =
+    "border-border/50 shadow-sm transition-[box-shadow,border-color] duration-300 hover:border-border hover:shadow-md"
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,hsl(var(--primary)/0.09),transparent_55%)]"
+      />
       <DashboardHeader />
-      
-      <main className="container mx-auto py-6 px-4">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Survey Responses</h1>
-              <p className="text-muted-foreground">Manage and view all survey records</p>
+
+      <main className="container relative mx-auto px-4 py-8 lg:py-10">
+        <div className="mx-auto max-w-[1600px] space-y-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2">
+              <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+                Survey responses
+              </h1>
+              <p className="max-w-xl text-muted-foreground leading-relaxed">
+                Filter by workflow status, PID, and dates — open a row for full detail,
+                signatures, and SHK follow-up.
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={() => router.push("/dashboard/survey/new")}>
-                New Survey
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                className="font-medium shadow-sm"
+                onClick={() => router.push("/dashboard/survey/new")}
+              >
+                New survey
               </Button>
               <Button
                 variant={viewMode === "table" ? "default" : "outline"}
                 size="icon"
+                className="border-border/60 shadow-none"
                 onClick={() => setViewMode("table")}
               >
                 <TableIcon className="h-4 w-4" />
@@ -230,15 +245,27 @@ export default function DashboardPage() {
               <Button
                 variant={viewMode === "list" ? "default" : "outline"}
                 size="icon"
+                className="border-border/60 shadow-none"
                 onClick={() => setViewMode("list")}
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>
-              <Button onClick={handleExportClient} variant="outline" title="Export current filtered list">
+              <Button
+                onClick={handleExportClient}
+                variant="outline"
+                className="border-border/60 shadow-none"
+                title="Export current filtered list"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
-              <Button onClick={handleExportServer} variant="outline" disabled={exporting} title="Export from server (respects status & date filters)">
+              <Button
+                onClick={handleExportServer}
+                variant="outline"
+                className="border-border/60 shadow-none"
+                disabled={exporting}
+                title="Export from server (respects status & date filters)"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 {exporting ? "Exporting…" : "Export CSV (server)"}
               </Button>
@@ -248,7 +275,7 @@ export default function DashboardPage() {
           {/* Analytics cards */}
           {!loading && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-              <Card>
+              <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total (filtered)</CardTitle>
                   <FileText className="h-4 w-4 text-muted-foreground" />
@@ -258,7 +285,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">server filters (status, dates, PID, search, workflow)</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Completed</CardTitle>
                   <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
@@ -268,7 +295,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">on this page</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Drafts</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -278,7 +305,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">on this page</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Last 7 days</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -288,7 +315,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">created (this page)</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">With signature</CardTitle>
                 </CardHeader>
@@ -302,7 +329,7 @@ export default function DashboardPage() {
 
           {/* Chart */}
           {!loading && chartData.some(d => d.count > 0) && (
-            <Card>
+            <Card className={surfaceCard}>
               <CardHeader>
                 <CardTitle>Responses by day</CardTitle>
                 <CardDescription>Last 14 days (from current page)</CardDescription>
@@ -322,7 +349,7 @@ export default function DashboardPage() {
           )}
 
           {/* Filters */}
-          <Card className="p-4">
+          <Card className={`p-4 ${surfaceCard}`}>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -450,7 +477,7 @@ export default function DashboardPage() {
           </Card>
 
           {error && (
-            <Card className="p-4 border-destructive/50 bg-destructive/10">
+            <Card className="border-destructive/40 bg-destructive/10 p-4 shadow-sm">
               <p className="text-sm text-destructive">{error}</p>
               <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>Retry</Button>
             </Card>
@@ -464,7 +491,7 @@ export default function DashboardPage() {
 
           {/* Table View */}
           {!loading && viewMode === "table" && (
-            <Card>
+            <Card className={`overflow-hidden ${surfaceCard}`}>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -533,7 +560,7 @@ export default function DashboardPage() {
               {filteredData.map((item) => (
                 <Card 
                   key={item._id} 
-                  className="p-4 space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                  className={`cursor-pointer space-y-3 p-4 transition-[box-shadow,border-color,background-color] duration-200 hover:border-primary/25 hover:bg-muted/40 hover:shadow-md ${surfaceCard}`}
                   onClick={() => router.push(`/dashboard/${item._id}`)}
                 >
                   <div className="flex items-start justify-between">

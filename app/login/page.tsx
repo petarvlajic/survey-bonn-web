@@ -1,14 +1,15 @@
 import { Suspense } from "react"
 import { Card } from "@/components/ui/card"
+import { AuthShell } from "@/components/auth-shell"
 import LoginContent from "./login-content"
 
 function LoginFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-md p-12 flex items-center justify-center text-muted-foreground text-sm">
-        Loading…
+    <AuthShell>
+      <Card className="flex w-full justify-center rounded-2xl border-border/60 bg-card/95 py-16 shadow-xl shadow-black/[0.04] backdrop-blur-sm">
+        <p className="text-sm text-muted-foreground">Loading…</p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 

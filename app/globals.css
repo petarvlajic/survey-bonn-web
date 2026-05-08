@@ -1,72 +1,83 @@
 @import 'tailwindcss';
 
-@theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+@keyframes auth-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  /* Color tokens */
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Color tokens — clinical blues, softer neutrals */
+  --background: 213 42% 98%;
+  --foreground: 224 56% 12%;
   
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 214 38% 95%;
+  --muted-foreground: 220 13% 44%;
   
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 224 56% 12%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 224 56% 12%;
   
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
+  --border: 216 26% 90%;
+  --input: 216 26% 90%;
   
-  --primary: 221 83% 53%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 217 71% 48%;
+  --primary-foreground: 210 50% 99%;
   
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 214 38% 95%;
+  --secondary-foreground: 224 47% 16%;
   
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 211 92% 95%;
+  --accent-foreground: 224 47% 16%;
   
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 74% 50%;
+  --destructive-foreground: 210 50% 99%;
   
-  --ring: 221 83% 53%;
+  --ring: 217 71% 48%;
   
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme inline {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 228 34% 9%;
+    --foreground: 213 30% 97%;
     
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 222 24% 16%;
+    --muted-foreground: 218 18% 68%;
     
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 226 30% 11%;
+    --card-foreground: 213 30% 97%;
     
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 226 30% 11%;
+    --popover-foreground: 213 30% 97%;
     
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
+    --border: 222 22% 19%;
+    --input: 222 22% 19%;
     
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 213 86% 58%;
+    --primary-foreground: 228 40% 8%;
     
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 222 22% 17%;
+    --secondary-foreground: 213 30% 96%;
     
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 215 38% 18%;
+    --accent-foreground: 213 30% 96%;
     
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 44%;
+    --destructive-foreground: 213 30% 97%;
     
-    --ring: 217 91% 60%;
+    --ring: 213 86% 58%;
   }
 }
 
@@ -77,6 +88,7 @@
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-feature-settings: "kern" 1, "liga" 1;
 }
 
 /* Added print styles for PDF generation */
