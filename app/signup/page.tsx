@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { authAPI } from "@/lib/api/auth"
+import { normalizeAuthUser } from "@/lib/auth/normalize-user"
 import { useAuth } from "@/lib/hooks/use-auth"
 
 export default function SignupPage() {
@@ -53,7 +54,7 @@ export default function SignupPage() {
     try {
       setLoading(true)
       const response = await authAPI.signup(formData)
-      setAuth(response.user, response.token)
+      setAuth(normalizeAuthUser(response.user), response.token)
       router.push("/dashboard")
     } catch (err: any) {
       const data = err.response?.data

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { responsesAPI, type SurveyResponse } from "@/lib/api/responses"
 
 function toSurveyResponse(item: Record<string, unknown>): SurveyResponse {
@@ -65,7 +65,8 @@ export function useResponses(filters?: Parameters<typeof responsesAPI.getAll>[0]
       }
       setResponses(list)
       const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
-      setTotal(Number(obj.total) ?? list.length)
+      const tRaw = obj.total
+      setTotal(typeof tRaw === "number" && !Number.isNaN(tRaw) ? tRaw : list.length)
       setPage(Number(obj.page) ?? 1)
       setLimit(Number(obj.limit) ?? 50)
       setError(null)
@@ -88,27 +89,27 @@ export function useResponse(id: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchResponse = async () => {
-      try {
-        setLoading(true)
-        const raw = await responsesAPI.getById(id)
-        setResponse(normalizeResponse(raw))
-        setError(null)
-      } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to fetch response")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (id) {
-      fetchResponse()
-    } else {
+  const fetchResponse = useCallback(async () => {
+    if (!id) {
       setLoading(false)
       setResponse(null)
+      return
+    }
+    try {
+      setLoading(true)
+      const raw = await responsesAPI.getById(id)
+      setResponse(normalizeResponse(raw))
+      setError(null)
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.response?.data?.message || "Failed to fetch response")
+    } finally {
+      setLoading(false)
     }
   }, [id])
 
-  return { response, loading, error }
+  useEffect(() => {
+    fetchResponse()
+  }, [fetchResponse])
+
+  return { response, loading, error, refetch: fetchResponse }
 }

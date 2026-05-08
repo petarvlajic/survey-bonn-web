@@ -1,26 +1,65 @@
-version: "3.8"
+# Deploy stack: MongoDB + API + Next.js web.
+# Expects `uk-bonn-survey-web` (this repo) and `uk-bonn-survey-api` as sibling directories:
+#   parent/
+#     uk-bonn-survey-web/   ← run docker compose from here
+#     uk-bonn-survey-api/
+#
+# 1. cp docker-compose.env.example .env   (fill secrets & URLs)
+# 2. docker compose up -d --build
+
+name: bonn-survey
 
 services:
-  web:
-    build: .
-    container_name: uk-bonn-survey-web
-    restart: always
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    expose:
+      - "27017"
+
+  api:
+    build:
+      context: ${API_BUILD_CONTEXT:-../uk-bonn-survey-api}
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${API_HOST_PORT:-4000}:4000"
+    volumes:
+      - api_pdfs:/app/pdfs
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_BASE_URL: "https://survey-api.herz-check-bonn.de/api"
-    # Uncomment and adjust if you also run the API via Compose
-    # depends_on:
-    #   - api
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/uk-bonn-survey
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      FRONTEND_URL: ${FRONTEND_URL:-}
+      RESET_PASSWORD_BASE_URL: ${RESET_PASSWORD_BASE_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SEND_SURVEY_COMPLETION_EMAIL: ${SEND_SURVEY_COMPLETION_EMAIL:-false}
+      SAVE_PDF_TO_DISK: ${SAVE_PDF_TO_DISK:-true}
+    depends_on:
+      - mongo
 
-  # api:
-  #   image: your-registry/uk-bonn-survey-api:latest
-  #   container_name: uk-bonn-survey-api
-  #   restart: always
-  #   ports:
-  #     - "4000:4000"
-  #   environment:
-  #     NODE_ENV: production
-  #     # DB_URL, etc.
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    restart: unless-stopped
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+    depends_on:
+      - api
 
+volumes:
+  mongo_data:
+  api_pdfs:

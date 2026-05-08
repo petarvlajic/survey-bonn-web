@@ -1,28 +1,32 @@
-FROM node:20-alpine AS builder
+# Next.js standalone image (pnpm). Build: docker build -t bonn-web .
+# Run: docker run --rm -p 3000:3000 -e NEXT_PUBLIC_API_BASE_URL=https://your-api.example/api bonn-web
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
 WORKDIR /app
 
-# Install dependencies
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable && pnpm install --frozen-lockfile
+FROM base AS deps
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Build application
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm build
+# Client bundle embeds NEXT_PUBLIC_* at build time; override via:
+# docker build --build-arg NEXT_PUBLIC_API_BASE_URL=https://your-host/api ...
+ARG NEXT_PUBLIC_API_BASE_URL=https://survey-api.herz-check-bonn.de/api
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm run build
 
-FROM node:20-alpine AS runner
-WORKDIR /app
+FROM base AS runner
 ENV NODE_ENV=production
-
-# Copy built app
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/pnpm-lock.yaml* ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
-
-ENV PORT=3000
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+USER nextjs
 EXPOSE 3000
-
-# NEXT_PUBLIC_API_BASE_URL should be provided via environment
-CMD ["pnpm", "start"]
-
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+CMD ["node", "server.js"]

@@ -16,13 +16,7 @@ export interface SignupData {
 
 export interface AuthResponse {
   token: string
-  user: {
-    id: string
-    firstName: string
-    lastName: string
-    email: string
-    role: string
-  }
+  user: unknown
 }
 
 export const authAPI = {
@@ -53,6 +47,25 @@ export const authAPI = {
 
   updateProfile: async (updates: Partial<SignupData>) => {
     const { data } = await apiClient.put("/auth/profile", updates)
+    return data as { user: unknown; token?: string }
+  },
+
+  listAdminUsers: async () => {
+    const { data } = await apiClient.get("/auth/admin/users")
+    return data as {
+      users: Array<{
+        id: string
+        email: string
+        firstName?: string
+        lastName?: string
+        role: string
+        createdAt?: string
+      }>
+    }
+  },
+
+  setUserRole: async (userId: string, role: "user" | "admin") => {
+    const { data } = await apiClient.patch(`/auth/admin/users/${userId}/role`, { role })
     return data
   },
 }

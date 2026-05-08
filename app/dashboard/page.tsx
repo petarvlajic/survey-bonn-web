@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [dateTo, setDateTo] = useState("")
   const [pidFilter, setPidFilter] = useState("")
   const [hasSignatureFilter, setHasSignatureFilter] = useState<"all" | "signed" | "unsigned">("all")
+  const [workflowFilter, setWorkflowFilter] = useState("all")
   const [exporting, setExporting] = useState(false)
   const [page, setPage] = useState(1)
   const [sortBy, setSortBy] = useState<"createdAt" | "completedAt">("createdAt")
@@ -47,11 +48,10 @@ export default function DashboardPage() {
       ...(dateFrom && { completedAtFrom: dateFrom }),
       ...(dateTo && { completedAtTo: dateTo }),
       ...(pidFilter.trim() && { pid: pidFilter.trim() }),
-      ...(hasSignatureFilter !== "all" && {
-        hasSignature: hasSignatureFilter === "signed",
-      }),
+      ...(searchQuery.trim() && { search: searchQuery.trim() }),
+      ...(workflowFilter !== "all" && { workflowStatus: workflowFilter }),
     }),
-    [page, sortBy, sortOrder, statusFilter, dateFrom, dateTo, pidFilter, hasSignatureFilter],
+    [page, sortBy, sortOrder, statusFilter, dateFrom, dateTo, pidFilter, searchQuery, workflowFilter],
   )
 
   const { responses, total, page: currentPage, limit, loading, error, refetch } = useResponses(apiFilters)
@@ -67,21 +67,17 @@ export default function DashboardPage() {
     return combined
   }, [responses, surveys])
 
+  /** Status / PID / workflow / text search are applied on the server; here we only narrow by survey title and signature. */
   const filteredData = useMemo(() => {
     return responses.filter(item => {
-      const matchesSearch = !searchQuery.trim() ||
-        item.intervieweeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.intervieweeEmail?.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesStatus = statusFilter === "all" || item.status === statusFilter
       const matchesSurvey = surveyFilter === "all" || item.surveyTitle === surveyFilter || item.surveyId === surveyFilter
-      const matchesPid = !pidFilter.trim() || item.pid === pidFilter.trim()
       const matchesSignature =
         hasSignatureFilter === "all" ||
         (hasSignatureFilter === "signed" && hasSignature(item)) ||
         (hasSignatureFilter === "unsigned" && !hasSignature(item))
-      return matchesSearch && matchesStatus && matchesSurvey && matchesPid && matchesSignature
+      return matchesSurvey && matchesSignature
     })
-  }, [responses, searchQuery, statusFilter, surveyFilter, pidFilter, hasSignatureFilter])
+  }, [responses, surveyFilter, hasSignatureFilter])
 
   const completedAt = (item: (typeof responses)[number]) => item.submittedAt ?? (item as any).completedAt ?? null
 
@@ -130,6 +126,8 @@ export default function DashboardPage() {
     const headers = [
       "ID",
       "PID",
+      "Workflow",
+      "Locked",
       "Interviewer",
       "Interviewee",
       "Email",
@@ -142,6 +140,8 @@ export default function DashboardPage() {
     const rows = filteredData.map(item => [
       item._id,
       item.pid ?? "",
+      item.workflowStatus ?? "patient_completed",
+      item.lockedBy ? "Yes" : "No",
       item.interviewerName,
       item.intervieweeName,
       item.intervieweeEmail,
@@ -164,11 +164,21 @@ export default function DashboardPage() {
   const handleExportServer = async () => {
     setExporting(true)
     try {
-      const params: { draft?: boolean; completedAtFrom?: string; completedAtTo?: string } = {}
+      const params: {
+        draft?: boolean
+        completedAtFrom?: string
+        completedAtTo?: string
+        workflowStatus?: string
+        pid?: string
+        search?: string
+      } = {}
       if (statusFilter === "draft") params.draft = true
       if (statusFilter === "completed") params.draft = false
       if (dateFrom) params.completedAtFrom = dateFrom
       if (dateTo) params.completedAtTo = dateTo
+      if (workflowFilter !== "all") params.workflowStatus = workflowFilter
+      if (pidFilter.trim()) params.pid = pidFilter.trim()
+      if (searchQuery.trim()) params.search = searchQuery.trim()
       const blob = await responsesAPI.exportCSV(Object.keys(params).length ? params : undefined)
       const url = window.URL.createObjectURL(blob as Blob)
       const a = document.createElement("a")
@@ -245,7 +255,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{total}</div>
-                  <p className="text-xs text-muted-foreground">responses match current filters</p>
+                  <p className="text-xs text-muted-foreground">server filters (status, dates, PID, search, workflow)</p>
                 </CardContent>
               </Card>
               <Card>
@@ -319,7 +329,10 @@ export default function DashboardPage() {
                 <Input
                   placeholder="Search by name or email..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setPage(1)
+                  }}
                   className="pl-9"
                 />
               </div>
@@ -384,6 +397,25 @@ export default function DashboardPage() {
                   <SelectItem value="unsigned">Only unsigned</SelectItem>
                 </SelectContent>
               </Select>
+              <Select
+                value={workflowFilter}
+                onValueChange={v => {
+                  setWorkflowFilter(v)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Workflow filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All workflow states</SelectItem>
+                  <SelectItem value="patient_in_progress">Patient in progress</SelectItem>
+                  <SelectItem value="patient_completed">Patient completed</SelectItem>
+                  <SelectItem value="shk_in_progress">SHK in progress</SelectItem>
+                  <SelectItem value="pending_shk_followup">Pending SHK follow-up</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <span className="text-sm text-muted-foreground">Sort:</span>
@@ -439,6 +471,8 @@ export default function DashboardPage() {
                     <TableRow>
                       <TableHead>ID</TableHead>
                       <TableHead>PID</TableHead>
+                      <TableHead>Workflow</TableHead>
+                      <TableHead>Lock</TableHead>
                       <TableHead>Interviewer</TableHead>
                       <TableHead>Interviewee</TableHead>
                       <TableHead>Survey</TableHead>
@@ -457,6 +491,14 @@ export default function DashboardPage() {
                       >
                         <TableCell className="font-mono text-sm">{item._id}</TableCell>
                         <TableCell className="font-mono text-sm">{item.pid}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{item.workflowStatus ?? "patient_completed"}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={item.lockedBy ? "default" : "secondary"}>
+                            {item.lockedBy ? "Locked" : "Open"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>{item.interviewerName}</TableCell>
                         <TableCell>
                           <div>
@@ -502,6 +544,12 @@ export default function DashboardPage() {
                     </div>
                     <Badge variant={item.status === "completed" ? "default" : "secondary"}>
                       {item.status}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{item.workflowStatus ?? "patient_completed"}</Badge>
+                    <Badge variant={item.lockedBy ? "default" : "secondary"}>
+                      {item.lockedBy ? "Locked" : "Open"}
                     </Badge>
                   </div>
                   <div className="space-y-1">

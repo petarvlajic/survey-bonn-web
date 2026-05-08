@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User, LogOut, Settings, FileText, ClipboardList } from "lucide-react"
+import { User, LogOut, Settings, FileText, ClipboardList, Shield } from "lucide-react"
 import { useAuth } from "@/lib/hooks/use-auth"
 import Link from "next/link"
 
@@ -46,6 +46,14 @@ export function DashboardHeader() {
                 Surveys
               </Button>
             </Link>
+            {user?.role === "admin" && (
+              <Link href="/dashboard/admin">
+                <Button variant="ghost" size="sm">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              </Link>
+            )}
           </nav>
         </div>
 

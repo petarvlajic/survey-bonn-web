@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DashboardHeader } from "@/components/dashboard-header"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { authAPI } from "@/lib/api/auth"
+import { normalizeAuthUser } from "@/lib/auth/normalize-user"
 
 export default function ProfilePage() {
   const { user, setAuth } = useAuth()
@@ -44,7 +45,8 @@ export default function ProfilePage() {
     try {
       setLoading(true)
       const response = await authAPI.updateProfile(formData)
-      setAuth(response.user, response.token)
+      const token = response.token ?? useAuth.getState().token ?? ""
+      setAuth(normalizeAuthUser(response.user), token)
       setSuccess(true)
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to update profile")

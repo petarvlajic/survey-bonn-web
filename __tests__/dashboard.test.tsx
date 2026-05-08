@@ -2,11 +2,26 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import DashboardPage from "@/app/dashboard/page"
 import type { SurveyResponse } from "@/lib/api/responses"
 
+const { exportCSVMock } = vi.hoisted(() => ({
+  exportCSVMock: vi.fn(async () => new Blob(["x"], { type: "text/csv" })),
+}))
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
   }),
 }))
+
+vi.mock("@/lib/api/responses", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api/responses")>("@/lib/api/responses")
+  return {
+    ...actual,
+    responsesAPI: {
+      ...actual.responsesAPI,
+      exportCSV: exportCSVMock,
+    },
+  }
+})
 
 vi.mock("@/lib/hooks/use-survey", () => ({
   useSurveys: () => ({ surveys: [], loading: false, error: null, refetch: vi.fn() }),
@@ -23,6 +38,8 @@ const mockResponses: SurveyResponse[] = [
     intervieweeEmail: "alice@example.com",
     answers: [],
     status: "completed",
+    workflowStatus: "shk_in_progress",
+    lockedBy: "user-1",
     signature: "sig",
     createdAt: new Date().toISOString(),
   },
@@ -36,6 +53,7 @@ const mockResponses: SurveyResponse[] = [
     intervieweeEmail: "bob@example.com",
     answers: [],
     status: "draft",
+    workflowStatus: "patient_in_progress",
     createdAt: new Date().toISOString(),
   },
 ] as SurveyResponse[]
@@ -59,6 +77,8 @@ describe("DashboardPage analytics and filters", () => {
     expect(screen.getByText("PID")).toBeInTheDocument()
     expect(screen.getByText("PID-123")).toBeInTheDocument()
     expect(screen.getByText("PID-999")).toBeInTheDocument()
+    expect(screen.getByText("Workflow")).toBeInTheDocument()
+    expect(screen.getByText("shk_in_progress")).toBeInTheDocument()
   })
 
   it("filters responses by PID", () => {
@@ -94,9 +114,67 @@ describe("DashboardPage analytics and filters", () => {
     const [parts] = blobMock.mock.calls[0] as unknown[]
     const csv = String((parts as unknown[])[0])
 
-    expect(csv).toContain("ID,PID,Interviewer,Interviewee,Email,Survey,Status,Created,Completed,Signature")
+    expect(csv).toContain("ID,PID,Workflow,Locked,Interviewer,Interviewee,Email,Survey,Status,Created,Completed,Signature")
     expect(csv).toContain("PID-123")
     expect(csv).toContain("PID-999")
+  })
+
+  it("sends active filters to server export", async () => {
+    render(<DashboardPage />)
+
+    fireEvent.change(screen.getByPlaceholderText("Search by name or email..."), {
+      target: { value: "Alice" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("Filter by PID..."), {
+      target: { value: "PID-123" },
+    })
+    fireEvent.click(screen.getByTitle("Export from server (respects status & date filters)"))
+
+    expect(exportCSVMock).toHaveBeenCalled()
+    const args = exportCSVMock.mock.calls[0][0]
+    expect(args.search).toBe("Alice")
+    expect(args.pid).toBe("PID-123")
+  })
+
+  it("filters responses by workflow status", () => {
+    render(<DashboardPage />)
+
+    fireEvent.click(screen.getByText("All workflow states"))
+    fireEvent.click(screen.getByText("Patient in progress"))
+
+    expect(screen.getByText("PID-999")).toBeInTheDocument()
+    expect(screen.queryByText("PID-123")).not.toBeInTheDocument()
+  })
+
+  it("filters responses by unsigned signature state", () => {
+    render(<DashboardPage />)
+
+    fireEvent.click(screen.getByText("All signatures"))
+    fireEvent.click(screen.getByText("Only unsigned"))
+
+    expect(screen.getByText("PID-999")).toBeInTheDocument()
+    expect(screen.queryByText("PID-123")).not.toBeInTheDocument()
+  })
+
+  it("sends status, workflow and date filters to server export", () => {
+    render(<DashboardPage />)
+
+    fireEvent.click(screen.getByText("All Status"))
+    fireEvent.click(screen.getByText("Draft"))
+    fireEvent.click(screen.getByText("All workflow states"))
+    fireEvent.click(screen.getByText("Patient in progress"))
+
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(dateInputs[0], { target: { value: "2026-03-01" } })
+    fireEvent.change(dateInputs[1], { target: { value: "2026-03-31" } })
+
+    fireEvent.click(screen.getByTitle("Export from server (respects status & date filters)"))
+
+    const args = exportCSVMock.mock.calls.at(-1)?.[0]
+    expect(args.draft).toBe(true)
+    expect(args.workflowStatus).toBe("patient_in_progress")
+    expect(args.completedAtFrom).toBe("2026-03-01")
+    expect(args.completedAtTo).toBe("2026-03-31")
   })
 })
 

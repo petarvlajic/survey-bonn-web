@@ -1,13 +1,8 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import type { AuthUser } from "@/lib/auth/normalize-user"
 
-interface User {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  role: string
-}
+type User = AuthUser
 
 interface AuthState {
   user: User | null

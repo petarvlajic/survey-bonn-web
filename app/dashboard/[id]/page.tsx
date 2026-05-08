@@ -10,8 +10,19 @@ import { ArrowLeft, Calendar, User, Mail, FileText, CheckCircle2, FileDown } fro
 import { useState } from "react"
 import { useResponse } from "@/lib/hooks/use-responses"
 import { responsesAPI } from "@/lib/api/responses"
-import type { ResponseAnswer } from "@/lib/api/responses"
+import type { ResponseAnswer, SurveyResponse } from "@/lib/api/responses"
 import { getSurveyFieldLabel } from "@/lib/survey-field-labels"
+import { ShkFollowUpForm } from "@/components/shk-follow-up-form"
+import { useAuth } from "@/lib/hooks/use-auth"
+
+function lockedByUserId(lockedBy: SurveyResponse["lockedBy"]): string | undefined {
+  if (lockedBy == null || lockedBy === "") return undefined
+  if (typeof lockedBy === "object" && lockedBy !== null && "_id" in lockedBy && lockedBy._id != null) {
+    return String(lockedBy._id)
+  }
+  if (typeof lockedBy === "string") return lockedBy
+  return undefined
+}
 
 function formatAnswer(value: string | string[] | number | boolean): string {
   if (Array.isArray(value)) return value.join(", ")
@@ -24,8 +35,11 @@ export default function ResponseDetailsPage() {
   const router = useRouter()
   const id = (params?.id as string) ?? ""
 
-  const { response, loading, error } = useResponse(id)
+  const { response, loading, error, refetch } = useResponse(id)
+  const { user } = useAuth()
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [workflowActionLoading, setWorkflowActionLoading] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
 
   const handlePrintPDF = () => {
     window.print()
@@ -49,13 +63,61 @@ export default function ResponseDetailsPage() {
     }
   }
 
+  const handleLock = async () => {
+    if (!id) return
+    setWorkflowActionLoading(true)
+    try {
+      await responsesAPI.lock(id)
+      await refetch()
+    } catch (e) {
+      console.error("Lock failed", e)
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
+  const handleUnlock = async () => {
+    if (!id) return
+    setWorkflowActionLoading(true)
+    try {
+      await responsesAPI.unlock(id)
+      await refetch()
+    } catch (e) {
+      console.error("Unlock failed", e)
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
+  const handleClose = async () => {
+    if (!id) return
+    setCloseError(null)
+    setWorkflowActionLoading(true)
+    try {
+      await responsesAPI.close(id)
+      await refetch()
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? (e as { response?: { data?: { error?: string } } }).response?.data?.error
+          : undefined
+      setCloseError(msg ?? "Close failed")
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
   const completedAt = response?.submittedAt ?? (response as { completedAt?: string })?.completedAt ?? null
   const hasSignature = !!(response?.signature || response?.signedAt)
   const rawAnswers = response?.answers ?? []
-  const answersList: { question: string; answer: string }[] = rawAnswers.map((a: ResponseAnswer) => {
+  const answersList: { question: string; answer: string; imageUri?: string }[] = rawAnswers.map((a: ResponseAnswer) => {
     const label = getSurveyFieldLabel(a.questionId ?? "")
     const val = a.answer !== undefined ? a.answer : a.value
-    return { question: label, answer: formatAnswer(val as string | string[] | number | boolean) }
+    return {
+      question: label,
+      answer: formatAnswer(val as string | string[] | number | boolean),
+      imageUri: (a as any).imageUri,
+    }
   })
 
   if (loading) {
@@ -101,6 +163,15 @@ export default function ResponseDetailsPage() {
   }
 
   const interviewerEmail = (response as { interviewerEmail?: string }).interviewerEmail
+  const workflowStatus = response.workflowStatus ?? "patient_completed"
+  const changeLog = response.changeLog ?? []
+  const needsFollowUp =
+    !!response.patientBoundedSubmit &&
+    workflowStatus !== "closed" &&
+    !response.shkFollowUp?.completedAt
+  const lockOwnerId = lockedByUserId(response.lockedBy)
+  const isLockOwner = Boolean(user?.id && lockOwnerId && user.id === lockOwnerId)
+  const allowCloseWithoutFollowUp = workflowStatus !== "closed" && !needsFollowUp
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,6 +196,7 @@ export default function ResponseDetailsPage() {
             <Badge variant={response.status === "completed" ? "default" : "secondary"}>
               {response.status}
             </Badge>
+            <Badge variant="outline">{workflowStatus}</Badge>
             <Button 
               onClick={handleDownloadPDF}
               variant="outline"
@@ -144,7 +216,63 @@ export default function ResponseDetailsPage() {
             >
               Print
             </Button>
+            {workflowStatus !== "closed" && !response.lockedBy && (
+              <Button
+                onClick={handleLock}
+                variant="outline"
+                size="sm"
+                disabled={workflowActionLoading}
+                className="print:hidden"
+              >
+                Lock
+              </Button>
+            )}
+            {!!response.lockedBy && workflowStatus !== "closed" && (
+              <Button
+                onClick={handleUnlock}
+                variant="outline"
+                size="sm"
+                disabled={workflowActionLoading}
+                className="print:hidden"
+              >
+                Unlock
+              </Button>
+            )}
+            {allowCloseWithoutFollowUp && (
+              <Button
+                onClick={handleClose}
+                variant="default"
+                size="sm"
+                disabled={workflowActionLoading}
+                className="print:hidden"
+              >
+                Close
+              </Button>
+            )}
           </div>
+          {closeError && (
+            <p className="text-sm text-destructive print:hidden">{closeError}</p>
+          )}
+
+          {needsFollowUp && !lockOwnerId && (
+            <Card className="print:hidden border-dashed bg-muted/30">
+              <CardContent className="pt-6 text-sm text-muted-foreground">
+                Dieser Datensatz wartet auf den SHK-Follow-up. Bitte mit <strong>Sperren</strong> durch die Prüfperson reservieren, anschließend die Checkliste abschließen.
+              </CardContent>
+            </Card>
+          )}
+          {needsFollowUp && !!lockOwnerId && !isLockOwner && (
+            <Card className="print:hidden border-dashed bg-muted/30">
+              <CardContent className="pt-6 text-sm text-muted-foreground">
+                Der Eintrag ist von einer anderen Prüfperson gesperrt. Follow-up kann nur von der Person abgeschlossen werden, die die Sperre hält.
+              </CardContent>
+            </Card>
+          )}
+          {needsFollowUp && isLockOwner && (
+            <div className="print:hidden">
+              <ShkFollowUpForm response={response} disabled={workflowActionLoading} onComplete={() => void refetch()} />
+            </div>
+          )}
 
           {/* Survey Information */}
           <Card>
@@ -270,6 +398,9 @@ export default function ResponseDetailsPage() {
                     <div className="space-y-2 py-0">
                       <p className="font-medium">{item.question}</p>
                       <p className="text-muted-foreground">{item.answer}</p>
+                      {item.imageUri && (
+                        <img src={item.imageUri} alt="attachment" className="mt-2 max-h-52 rounded border object-contain" />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -307,6 +438,32 @@ export default function ResponseDetailsPage() {
                 <p className="text-center text-muted-foreground">
                   This response is still in draft status. Survey responses will appear once completed.
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {changeLog.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Change Log</CardTitle>
+                <CardDescription>Field-level modifications for this response</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {changeLog.map((entry, idx) => (
+                  <div key={idx} className="rounded-md border p-3">
+                    <div className="mb-2 text-sm text-muted-foreground">
+                      {entry.source} · {formatDate(entry.changedAt)}
+                    </div>
+                    {entry.reason && <div className="mb-2 text-sm">Reason: {entry.reason}</div>}
+                    <div className="space-y-1">
+                      {entry.changes.map((c, cIdx) => (
+                        <div key={`${idx}-${cIdx}`} className="text-sm">
+                          <span className="font-medium">{c.field}:</span> "{c.previousValue}" → "{c.nextValue}"
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

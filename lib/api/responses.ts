@@ -7,6 +7,7 @@ export interface ResponseAnswer {
   /** API returns answers with `value` instead of `answer` */
   value?: string | string[] | number | boolean
   type?: string
+  imageUri?: string
 }
 
 export interface SurveyResponse {
@@ -25,6 +26,31 @@ export interface SurveyResponse {
   submittedAt?: string
   createdAt?: string
   updatedAt?: string
+  workflowStatus?:
+    | "patient_in_progress"
+    | "patient_completed"
+    | "shk_in_progress"
+    | "pending_shk_followup"
+    | "closed"
+  lockedBy?: string | { _id?: string }
+  patientBoundedSubmit?: boolean
+  shkFollowUp?: {
+    answers?: Record<string, boolean>
+    completedAt?: string
+  }
+  lockedAt?: string
+  closedAt?: string
+  changeLog?: Array<{
+    changedBy: string
+    changedAt: string
+    source: "PATIENT" | "SHK" | "SYSTEM"
+    reason?: string
+    changes: Array<{
+      field: string
+      previousValue: string
+      nextValue: string
+    }>
+  }>
 }
 
 export const responsesAPI = {
@@ -37,7 +63,6 @@ export const responsesAPI = {
     birthYearTo?: number
     diseases?: string[]
     riskFactors?: string[]
-    hasSignature?: boolean
     startDate?: string
     endDate?: string
     completedAtFrom?: string
@@ -47,8 +72,9 @@ export const responsesAPI = {
     limit?: number
     sortBy?: "createdAt" | "completedAt"
     sortOrder?: "asc" | "desc"
+    workflowStatus?: string
   }) => {
-    const params: Record<string, string | number | boolean | undefined> = { ...filters }
+    const params: Record<string, unknown> = { ...(filters ?? {}) }
     if (params.status !== undefined) {
       params.draft = params.status === "draft"
       delete params.status
@@ -92,6 +118,9 @@ export const responsesAPI = {
     draft?: boolean
     completedAtFrom?: string
     completedAtTo?: string
+    workflowStatus?: string
+    pid?: string
+    search?: string
   }) => {
     const { data } = await apiClient.get("/responses/export/csv", {
       params: filters,
@@ -104,6 +133,26 @@ export const responsesAPI = {
     const { data } = await apiClient.get(`/responses/${id}/export/pdf`, {
       responseType: "blob",
     })
+    return data
+  },
+
+  lock: async (id: string) => {
+    const { data } = await apiClient.post(`/responses/${id}/lock`)
+    return data
+  },
+
+  unlock: async (id: string) => {
+    const { data } = await apiClient.post(`/responses/${id}/unlock`)
+    return data
+  },
+
+  close: async (id: string) => {
+    const { data } = await apiClient.post(`/responses/${id}/close`)
+    return data
+  },
+
+  completeFollowUp: async (id: string, answers: Record<string, boolean>) => {
+    const { data } = await apiClient.post(`/responses/${id}/followup/complete`, { answers })
     return data
   },
 }
