@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,11 +15,18 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Download, Search, LayoutGrid, TableIcon, BarChart3, FileText, CheckCircle2, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download, Search, LayoutGrid, TableIcon, BarChart3, FileText, CheckCircle2, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { DashboardHeader } from "@/components/dashboard-header"
+import { AnswerFilterRows } from "@/components/answer-filter-rows"
 import { useResponses } from "@/lib/hooks/use-responses"
 import { useSurveys } from "@/lib/hooks/use-survey"
 import { responsesAPI } from "@/lib/api/responses"
+import type { AnswerFilter, FilterFieldMeta } from "@/lib/types/answer-filters"
+import {
+  activeAnswerFilters,
+  defaultOpForKind,
+  defaultValueForKind,
+} from "@/lib/types/answer-filters"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
 
@@ -38,6 +45,31 @@ export default function DashboardPage() {
   const [page, setPage] = useState(1)
   const [sortBy, setSortBy] = useState<"createdAt" | "completedAt">("createdAt")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [filterFields, setFilterFields] = useState<FilterFieldMeta[]>([])
+  const [answerFilters, setAnswerFilters] = useState<AnswerFilter[]>([])
+  const [appliedAnswerFilters, setAppliedAnswerFilters] = useState<AnswerFilter[]>([])
+
+  useEffect(() => {
+    responsesAPI
+      .getFilterFields()
+      .then((fields) => {
+        setFilterFields(fields)
+        if (fields.length > 0) {
+          setAnswerFilters((prev) => {
+            if (prev.length > 0) return prev
+            const first = fields[0]
+            return [
+              {
+                questionId: first.questionId,
+                op: defaultOpForKind(first.kind),
+                value: defaultValueForKind(first.kind),
+              },
+            ]
+          })
+        }
+      })
+      .catch((e) => console.error("Failed to load filter fields", e))
+  }, [])
 
   const apiFilters = useMemo(
     () => ({
@@ -50,8 +82,22 @@ export default function DashboardPage() {
       ...(pidFilter.trim() && { pid: pidFilter.trim() }),
       ...(searchQuery.trim() && { search: searchQuery.trim() }),
       ...(workflowFilter !== "all" && { workflowStatus: workflowFilter }),
+      ...(appliedAnswerFilters.length > 0 && {
+        answerFilters: appliedAnswerFilters,
+      }),
     }),
-    [page, sortBy, sortOrder, statusFilter, dateFrom, dateTo, pidFilter, searchQuery, workflowFilter],
+    [
+      page,
+      sortBy,
+      sortOrder,
+      statusFilter,
+      dateFrom,
+      dateTo,
+      pidFilter,
+      searchQuery,
+      workflowFilter,
+      appliedAnswerFilters,
+    ],
   )
 
   const { responses, total, page: currentPage, limit, loading, error, refetch } = useResponses(apiFilters)
@@ -161,6 +207,30 @@ export default function DashboardPage() {
     window.URL.revokeObjectURL(url)
   }
 
+  const applyAnswerFilters = () => {
+    setAppliedAnswerFilters(activeAnswerFilters(answerFilters))
+    setPage(1)
+  }
+
+  const addAnswerFilterRow = () => {
+    const first = filterFields[0]
+    if (!first) return
+    setAnswerFilters((prev) => [
+      ...prev,
+      {
+        questionId: first.questionId,
+        op: defaultOpForKind(first.kind),
+        value: defaultValueForKind(first.kind),
+      },
+    ])
+  }
+
+  const clearAnswerFilters = () => {
+    setAnswerFilters([])
+    setAppliedAnswerFilters([])
+    setPage(1)
+  }
+
   const handleExportServer = async () => {
     setExporting(true)
     try {
@@ -171,6 +241,7 @@ export default function DashboardPage() {
         workflowStatus?: string
         pid?: string
         search?: string
+        answerFilters?: AnswerFilter[]
       } = {}
       if (statusFilter === "draft") params.draft = true
       if (statusFilter === "completed") params.draft = false
@@ -179,6 +250,7 @@ export default function DashboardPage() {
       if (workflowFilter !== "all") params.workflowStatus = workflowFilter
       if (pidFilter.trim()) params.pid = pidFilter.trim()
       if (searchQuery.trim()) params.search = searchQuery.trim()
+      if (appliedAnswerFilters.length > 0) params.answerFilters = appliedAnswerFilters
       const blob = await responsesAPI.exportCSV(Object.keys(params).length ? params : undefined)
       const url = window.URL.createObjectURL(blob as Blob)
       const a = document.createElement("a")
@@ -264,7 +336,7 @@ export default function DashboardPage() {
                 variant="outline"
                 className="border-border/60 shadow-none"
                 disabled={exporting}
-                title="Export from server (respects status & date filters)"
+                title="Export from server (status, dates, workflow, answer filters)"
               >
                 <Download className="h-4 w-4 mr-2" />
                 {exporting ? "Exporting…" : "Export CSV (server)"}
@@ -282,7 +354,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{total}</div>
-                  <p className="text-xs text-muted-foreground">server filters (status, dates, PID, search, workflow)</p>
+                  <p className="text-xs text-muted-foreground">server filters (status, dates, PID, search, workflow, answers)</p>
                 </CardContent>
               </Card>
               <Card className={surfaceCard}>
@@ -444,6 +516,52 @@ export default function DashboardPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="mt-6 space-y-3 rounded-lg border border-primary/15 bg-primary/5 p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Filter nach Antworten (kombinierbar)
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Jedes Feld schränkt die Liste weiter ein (z.&nbsp;B. Brustbeschwerden = Ja, Schmerzintensität ≤ 5).
+                  Server-CSV enthält nur gefilterte Fälle.
+                </p>
+              </div>
+              <AnswerFilterRows
+                fields={filterFields}
+                filters={answerFilters}
+                onChange={setAnswerFilters}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAnswerFilterRow}
+                  disabled={filterFields.length === 0}
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Filter hinzufügen
+                </Button>
+                <Button type="button" size="sm" onClick={applyAnswerFilters}>
+                  Filter anwenden
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAnswerFilters}
+                >
+                  Alle Filter löschen
+                </Button>
+                {appliedAnswerFilters.length > 0 && (
+                  <span className="self-center text-xs text-muted-foreground">
+                    {appliedAnswerFilters.length} aktive Antwort-Filter
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <span className="text-sm text-muted-foreground">Sort:</span>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(v) => {

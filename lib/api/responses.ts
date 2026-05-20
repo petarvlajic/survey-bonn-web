@@ -1,4 +1,6 @@
 import { apiClient } from "./axios"
+import type { AnswerFilter } from "@/lib/types/answer-filters"
+import { activeAnswerFilters } from "@/lib/types/answer-filters"
 
 export interface ResponseAnswer {
   questionId: string
@@ -53,7 +55,24 @@ export interface SurveyResponse {
   }>
 }
 
+function withAnswerFiltersParam(
+  params: Record<string, unknown>,
+  answerFilters?: AnswerFilter[]
+): void {
+  const active = activeAnswerFilters(answerFilters ?? [])
+  if (active.length > 0) {
+    params.answerFilters = JSON.stringify(active)
+  }
+}
+
 export const responsesAPI = {
+  getFilterFields: async () => {
+    const { data } = await apiClient.get<{ fields: import("@/lib/types/answer-filters").FilterFieldMeta[] }>(
+      "/responses/meta/filter-fields"
+    )
+    return data.fields ?? []
+  },
+
   getAll: async (filters?: {
     status?: string
     draft?: boolean
@@ -73,8 +92,11 @@ export const responsesAPI = {
     sortBy?: "createdAt" | "completedAt"
     sortOrder?: "asc" | "desc"
     workflowStatus?: string
+    answerFilters?: AnswerFilter[]
   }) => {
-    const params: Record<string, unknown> = { ...(filters ?? {}) }
+    const { answerFilters, ...rest } = filters ?? {}
+    const params: Record<string, unknown> = { ...rest }
+    withAnswerFiltersParam(params, answerFilters)
     if (params.status !== undefined) {
       params.draft = params.status === "draft"
       delete params.status
@@ -121,9 +143,13 @@ export const responsesAPI = {
     workflowStatus?: string
     pid?: string
     search?: string
+    answerFilters?: AnswerFilter[]
   }) => {
+    const { answerFilters, ...rest } = filters ?? {}
+    const params: Record<string, unknown> = { ...rest }
+    withAnswerFiltersParam(params, answerFilters)
     const { data } = await apiClient.get("/responses/export/csv", {
-      params: filters,
+      params,
       responseType: "blob",
     })
     return data

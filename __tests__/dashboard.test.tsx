@@ -2,8 +2,12 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import DashboardPage from "@/app/dashboard/page"
 import type { SurveyResponse } from "@/lib/api/responses"
 
-const { exportCSVMock } = vi.hoisted(() => ({
+const { exportCSVMock, getFilterFieldsMock } = vi.hoisted(() => ({
   exportCSVMock: vi.fn(async () => new Blob(["x"], { type: "text/csv" })),
+  getFilterFieldsMock: vi.fn(async () => [
+    { questionId: "hasChestComplaints", label: "Brustbeschwerden?", kind: "boolean" as const },
+    { questionId: "painIntensity", label: "Schmerzintensität", kind: "number" as const },
+  ]),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -19,6 +23,7 @@ vi.mock("@/lib/api/responses", async () => {
     responsesAPI: {
       ...actual.responsesAPI,
       exportCSV: exportCSVMock,
+      getFilterFields: getFilterFieldsMock,
     },
   }
 })
@@ -128,7 +133,7 @@ describe("DashboardPage analytics and filters", () => {
     fireEvent.change(screen.getByPlaceholderText("Filter by PID..."), {
       target: { value: "PID-123" },
     })
-    fireEvent.click(screen.getByTitle("Export from server (respects status & date filters)"))
+    fireEvent.click(screen.getByTitle("Export from server (status, dates, workflow, answer filters)"))
 
     expect(exportCSVMock).toHaveBeenCalled()
     const args = exportCSVMock.mock.calls[0][0]
@@ -156,6 +161,29 @@ describe("DashboardPage analytics and filters", () => {
     expect(screen.queryByText("PID-123")).not.toBeInTheDocument()
   })
 
+  it("renders answer filter section and apply button", async () => {
+    render(<DashboardPage />)
+    expect(await screen.findByText("Filter nach Antworten (kombinierbar)")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Filter anwenden/i })).toBeInTheDocument()
+    expect(getFilterFieldsMock).toHaveBeenCalled()
+  })
+
+  it("sends answerFilters to server export after apply", async () => {
+    render(<DashboardPage />)
+    await screen.findByText("Filter nach Antworten (kombinierbar)")
+
+    fireEvent.click(screen.getByRole("button", { name: /Filter anwenden/i }))
+    fireEvent.click(screen.getByTitle("Export from server (status, dates, workflow, answer filters)"))
+
+    expect(exportCSVMock).toHaveBeenCalled()
+    const args = exportCSVMock.mock.calls.at(-1)?.[0]
+    expect(args.answerFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ questionId: "hasChestComplaints", op: "eq", value: "yes" }),
+      ])
+    )
+  })
+
   it("sends status, workflow and date filters to server export", () => {
     render(<DashboardPage />)
 
@@ -168,7 +196,7 @@ describe("DashboardPage analytics and filters", () => {
     fireEvent.change(dateInputs[0], { target: { value: "2026-03-01" } })
     fireEvent.change(dateInputs[1], { target: { value: "2026-03-31" } })
 
-    fireEvent.click(screen.getByTitle("Export from server (respects status & date filters)"))
+    fireEvent.click(screen.getByTitle("Export from server (status, dates, workflow, answer filters)"))
 
     const args = exportCSVMock.mock.calls.at(-1)?.[0]
     expect(args.draft).toBe(true)
