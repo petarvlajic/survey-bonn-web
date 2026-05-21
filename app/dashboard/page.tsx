@@ -672,9 +672,16 @@ export default function DashboardPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>{item.interviewerName}</TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div>
-                            <div className="font-medium">{item.intervieweeName}</div>
+                            {item.intervieweeName?.trim() ? (
+                              <CopyableText
+                                value={item.intervieweeName}
+                                valueClassName="font-medium font-sans"
+                              />
+                            ) : (
+                              <div className="font-medium">—</div>
+                            )}
                             <div className="text-sm text-muted-foreground">{item.intervieweeEmail}</div>
                           </div>
                         </TableCell>
@@ -713,7 +720,14 @@ export default function DashboardPage() {
                       {item.pid ? (
                         <CopyableText value={item.pid} prefix="PID" className="text-sm" />
                       ) : null}
-                      <h3 className="font-semibold">{item.intervieweeName}</h3>
+                      {item.intervieweeName?.trim() ? (
+                        <CopyableText
+                          value={item.intervieweeName}
+                          valueClassName="font-semibold font-sans"
+                        />
+                      ) : (
+                        <h3 className="font-semibold">—</h3>
+                      )}
                       <p className="text-sm text-muted-foreground">{item.intervieweeEmail}</p>
                     </div>
                     <Badge variant={item.status === "completed" ? "default" : "secondary"}>

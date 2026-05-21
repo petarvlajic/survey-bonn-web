@@ -371,7 +371,14 @@ export default function ResponseDetailsPage() {
                 <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Name</p>
-                  <p className="font-medium">{response.intervieweeName}</p>
+                  {response.intervieweeName?.trim() ? (
+                    <CopyableText
+                      value={response.intervieweeName}
+                      valueClassName="font-medium font-sans"
+                    />
+                  ) : (
+                    <p className="font-medium">—</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-start gap-3">
