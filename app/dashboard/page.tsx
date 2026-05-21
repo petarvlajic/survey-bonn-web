@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Download, Search, LayoutGrid, TableIcon, BarChart3, FileText, CheckCircle2, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { DashboardHeader } from "@/components/dashboard-header"
 import { AnswerFilterRows } from "@/components/answer-filter-rows"
+import { CopyableText } from "@/components/copyable-text"
 import { useResponses } from "@/lib/hooks/use-responses"
 import { useSurveys } from "@/lib/hooks/use-survey"
 import { responsesAPI } from "@/lib/api/responses"
@@ -101,6 +102,26 @@ export default function DashboardPage() {
   )
 
   const { responses, total, page: currentPage, limit, loading, error, refetch } = useResponses(apiFilters)
+
+  const hasActiveServerFilters = useMemo(
+    () =>
+      statusFilter !== "all" ||
+      Boolean(dateFrom) ||
+      Boolean(dateTo) ||
+      Boolean(pidFilter.trim()) ||
+      Boolean(searchQuery.trim()) ||
+      workflowFilter !== "all" ||
+      appliedAnswerFilters.length > 0,
+    [
+      statusFilter,
+      dateFrom,
+      dateTo,
+      pidFilter,
+      searchQuery,
+      workflowFilter,
+      appliedAnswerFilters,
+    ]
+  )
   const { surveys } = useSurveys()
 
   const hasSignature = (item: (typeof responses)[number]) => !!(item.signature || item.signedAt)
@@ -635,7 +656,13 @@ export default function DashboardPage() {
                         onClick={() => router.push(`/dashboard/${item._id}`)}
                       >
                         <TableCell className="font-mono text-sm">{item._id}</TableCell>
-                        <TableCell className="font-mono text-sm">{item.pid}</TableCell>
+                        <TableCell className="font-mono text-sm" onClick={(e) => e.stopPropagation()}>
+                          {item.pid ? (
+                            <CopyableText value={item.pid} prefix="PID" />
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">{item.workflowStatus ?? "patient_completed"}</Badge>
                         </TableCell>
@@ -683,7 +710,9 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <p className="font-mono text-xs text-muted-foreground">#{item._id}</p>
+                      {item.pid ? (
+                        <CopyableText value={item.pid} prefix="PID" className="text-sm" />
+                      ) : null}
                       <h3 className="font-semibold">{item.intervieweeName}</h3>
                       <p className="text-sm text-muted-foreground">{item.intervieweeEmail}</p>
                     </div>
@@ -716,12 +745,16 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* No results */}
-          {!loading && filteredData.length === 0 && (
-            <Card className="p-12">
+          {/* No results — keep filters visible above */}
+          {!loading && total === 0 && (
+            <Card className={`p-12 ${surfaceCard}`}>
               <div className="text-center space-y-2">
                 <p className="text-lg font-medium">No responses found</p>
-                <p className="text-sm text-muted-foreground">Try adjusting your filters</p>
+                <p className="text-sm text-muted-foreground">
+                  {hasActiveServerFilters
+                    ? "Keine Treffer für die aktuellen Filter. Passen Sie die Filter an und klicken Sie erneut „Filter anwenden“."
+                    : "Try adjusting your filters or create a new survey."}
+                </p>
               </div>
             </Card>
           )}

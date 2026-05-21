@@ -13,6 +13,7 @@ import { responsesAPI } from "@/lib/api/responses"
 import type { ResponseAnswer, SurveyResponse } from "@/lib/api/responses"
 import { getSurveyFieldLabel } from "@/lib/survey-field-labels"
 import { ShkFollowUpForm } from "@/components/shk-follow-up-form"
+import { CopyableText } from "@/components/copyable-text"
 import { useAuth } from "@/lib/hooks/use-auth"
 
 function lockedByUserId(lockedBy: SurveyResponse["lockedBy"]): string | undefined {
@@ -191,7 +192,13 @@ export default function ResponseDetailsPage() {
             </Button>
             <div className="flex-1">
               <h1 className="text-3xl font-bold">Response Details</h1>
-              <p className="text-muted-foreground">ID: {response._id ?? id}</p>
+              <p className="text-muted-foreground text-sm">
+                {response.pid ? (
+                  <CopyableText value={response.pid} prefix="PID" />
+                ) : (
+                  <>Response: {response._id ?? id}</>
+                )}
+              </p>
             </div>
             <Badge variant={response.status === "completed" ? "default" : "secondary"}>
               {response.status}
@@ -311,7 +318,7 @@ export default function ResponseDetailsPage() {
                     <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Patient ID (PID)</p>
-                      <p>{response.pid}</p>
+                      <CopyableText value={response.pid} />
                     </div>
                   </div>
                 </>

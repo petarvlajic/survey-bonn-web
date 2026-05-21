@@ -51,7 +51,7 @@ describe("ResponseDetailsPage", () => {
     render(<ResponseDetailsPage />)
 
     expect(screen.getByText("Patient ID (PID)")).toBeInTheDocument()
-    expect(screen.getByText("PID-777")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: /PID-777/i }).length).toBeGreaterThanOrEqual(1)
   })
 
   it("indicates signed status based on signature fields", () => {
