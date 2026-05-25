@@ -15,11 +15,13 @@ import { responsesAPI } from "@/lib/api/responses"
 import { useAutoSave } from "@/lib/hooks/use-auto-save"
 import { handleApiError } from "@/lib/utils/error-handler"
 import { Badge } from "@/components/ui/badge"
+import { GENDER_VALUES, formatGenderLabel } from "@/lib/gender"
 
 type SurveyData = {
   // Section 1: General Information
   name: string
   birthDate: string
+  gender: string
   date: string
 
   // Section 2: Current Complaints
@@ -72,6 +74,7 @@ export default function NewSurveyPage() {
   const [formData, setFormData] = useState<SurveyData>({
     name: "",
     birthDate: "",
+    gender: "",
     date: new Date().toISOString().split("T")[0],
     hasChestComplaints: "",
     painType: [],
@@ -137,6 +140,8 @@ export default function NewSurveyPage() {
         interviewerName: "Current User",
         intervieweeName: data.name,
         intervieweeEmail: "",
+        birthDate: data.birthDate || undefined,
+        gender: data.gender || undefined,
         answers: buildAnswers(data, false),
         status: "draft",
       })
@@ -165,6 +170,8 @@ export default function NewSurveyPage() {
         interviewerName: "Current User",
         intervieweeName: formData.name,
         intervieweeEmail: "",
+        birthDate: formData.birthDate || undefined,
+        gender: formData.gender || undefined,
         answers: buildAnswers(formData, false),
         status: "draft",
       })
@@ -189,6 +196,8 @@ export default function NewSurveyPage() {
         interviewerName: "Current User",
         intervieweeName: formData.name,
         intervieweeEmail: "",
+        birthDate: formData.birthDate || undefined,
+        gender: formData.gender || undefined,
         answers: buildAnswers(formData, true),
         status: "completed",
         signature: formData.signature,
@@ -287,6 +296,20 @@ export default function NewSurveyPage() {
                     value={formData.birthDate}
                     onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                   />
+                </div>
+                <div className="space-y-3">
+                  <Label>Geschlecht (Gender) *</Label>
+                  <RadioGroup
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                  >
+                    {GENDER_VALUES.map((value) => (
+                      <div key={value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={value} id={`gender-${value}`} />
+                        <Label htmlFor={`gender-${value}`}>{formatGenderLabel(value)}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="date">Datum (Date)</Label>

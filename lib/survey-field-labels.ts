@@ -5,6 +5,7 @@
 export const SURVEY_FIELD_LABELS: Record<string, string> = {
   name: "Name",
   birthDate: "Geburtsdatum (Birth Date)",
+  gender: "Geschlecht (Gender)",
   date: "Datum (Date)",
   hasChestComplaints: "Beschwerden im Brustbereich?",
   painType: "Art der Schmerzen (Type of pain)",

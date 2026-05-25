@@ -15,6 +15,7 @@ import { getSurveyFieldLabel } from "@/lib/survey-field-labels"
 import { ShkFollowUpForm } from "@/components/shk-follow-up-form"
 import { CopyableText } from "@/components/copyable-text"
 import { useAuth } from "@/lib/hooks/use-auth"
+import { formatGenderLabel } from "@/lib/gender"
 
 function lockedByUserId(lockedBy: SurveyResponse["lockedBy"]): string | undefined {
   if (lockedBy == null || lockedBy === "") return undefined
@@ -23,6 +24,13 @@ function lockedByUserId(lockedBy: SurveyResponse["lockedBy"]): string | undefine
   }
   if (typeof lockedBy === "string") return lockedBy
   return undefined
+}
+
+function formatBirthDateDisplay(iso: string | undefined): string {
+  if (!iso?.trim()) return "—"
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (m) return `${m[3]}.${m[2]}.${m[1]}`
+  return iso
 }
 
 function formatAnswer(value: string | string[] | number | boolean): string {
@@ -392,7 +400,35 @@ export default function ResponseDetailsPage() {
                 <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                  <p>{response.intervieweePhone}</p>
+                  <p>{response.intervieweePhone || "—"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Geburtsdatum (Birth Date)</p>
+                  {response.birthDate?.trim() ? (
+                    <CopyableText
+                      value={formatBirthDateDisplay(response.birthDate)}
+                      valueClassName="font-medium font-sans"
+                    />
+                  ) : (
+                    <p className="font-medium">—</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Geschlecht (Gender)</p>
+                  {response.gender?.trim() ? (
+                    <CopyableText
+                      value={formatGenderLabel(response.gender)}
+                      valueClassName="font-medium font-sans"
+                    />
+                  ) : (
+                    <p className="font-medium">—</p>
+                  )}
                 </div>
               </div>
             </CardContent>

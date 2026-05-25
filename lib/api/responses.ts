@@ -15,6 +15,8 @@ export interface ResponseAnswer {
 export interface SurveyResponse {
   _id?: string
   pid?: string
+  birthDate?: string
+  gender?: string
   surveyId: string
   surveyTitle: string
   interviewerName: string
