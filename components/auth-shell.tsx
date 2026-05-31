@@ -1,23 +1,20 @@
+"use client"
+
 import type { ReactNode } from "react"
 import { Activity, Heart, ShieldCheck } from "lucide-react"
 import { BrandLockup } from "@/components/brand-lockup"
-
-const highlights = [
-  {
-    icon: ShieldCheck,
-    text: "Audit-friendly workflows and role-based access for clinical teams.",
-  },
-  {
-    icon: Activity,
-    text: "Herz Check Bonn — structured capture with clear response lifecycles.",
-  },
-  {
-    icon: Heart,
-    text: "Designed for calm, low-friction use in busy hospital settings.",
-  },
-] as const
+import { LanguageSwitcher } from "@/components/language-switcher"
+import { useI18n } from "@/lib/i18n/locale-context"
 
 export function AuthShell({ children }: { children: ReactNode }) {
+  const { t } = useI18n()
+
+  const highlights = [
+    { icon: ShieldCheck, text: t("auth.highlight1") },
+    { icon: Activity, text: t("auth.highlight2") },
+    { icon: Heart, text: t("auth.highlight3") },
+  ]
+
   return (
     <div className="relative min-h-dvh overflow-hidden bg-background">
       <div
@@ -27,7 +24,10 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="relative grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
         <aside className="relative hidden flex-col justify-between border-r border-border/50 bg-gradient-to-br from-muted/80 via-muted/40 to-background px-10 py-12 lg:flex xl:px-14">
           <div className="space-y-10">
-            <BrandLockup size="lg" />
+            <div className="flex items-start justify-between gap-4">
+              <BrandLockup size="lg" />
+              <LanguageSwitcher />
+            </div>
             <ul className="max-w-sm space-y-4">
               {highlights.map(({ icon: Icon, text }) => (
                 <li
@@ -42,15 +42,13 @@ export function AuthShell({ children }: { children: ReactNode }) {
               ))}
             </ul>
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground/75">
-            Uniklinikum Bonn · Survey operations dashboard. Use your institutional
-            @ukbonn.de account.
-          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground/75">{t("auth.footer")}</p>
         </aside>
 
         <div className="flex flex-col justify-center px-4 py-12 sm:px-8 lg:px-12">
-          <div className="mb-8 flex justify-center lg:hidden">
+          <div className="mb-6 flex items-center justify-between gap-4 lg:hidden">
             <BrandLockup size="md" />
+            <LanguageSwitcher compact />
           </div>
           <div className="mx-auto w-full max-w-[440px] motion-safe:animate-[auth-fade-up_0.55s_cubic-bezier(0.22,1,0.36,1)_both]">
             {children}

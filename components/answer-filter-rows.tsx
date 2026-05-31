@@ -14,8 +14,30 @@ import type { AnswerFilter, FilterFieldMeta } from "@/lib/types/answer-filters"
 import {
   defaultOpForKind,
   defaultValueForKind,
-  opsForKind,
+  type AnswerFilterOp,
 } from "@/lib/types/answer-filters"
+import { useI18n } from "@/lib/i18n/locale-context"
+import type { FilterFieldKind } from "@/lib/types/answer-filters"
+
+function opsForKindI18n(
+  kind: FilterFieldKind,
+  t: (path: string) => string
+): Array<{ v: AnswerFilterOp; l: string }> {
+  if (kind === "boolean") return [{ v: "eq", l: t("filters.advanced.opIs") }]
+  if (kind === "number") {
+    return [
+      { v: "eq", l: t("filters.advanced.opEq") },
+      { v: "lte", l: t("filters.advanced.opLte") },
+      { v: "gte", l: t("filters.advanced.opGte") },
+      { v: "lt", l: t("filters.advanced.opLt") },
+      { v: "gt", l: t("filters.advanced.opGt") },
+    ]
+  }
+  return [
+    { v: "contains", l: t("filters.advanced.opContains") },
+    { v: "eq", l: t("filters.advanced.opExact") },
+  ]
+}
 
 type Props = {
   fields: FilterFieldMeta[]
@@ -34,6 +56,8 @@ function getFieldMeta(fields: FilterFieldMeta[], questionId: string): FilterFiel
 }
 
 export function AnswerFilterRows({ fields, filters, onChange }: Props) {
+  const { t } = useI18n()
+
   const updateRow = (index: number, patch: Partial<AnswerFilter>) => {
     const next = [...filters]
     next[index] = { ...next[index], ...patch }
@@ -51,9 +75,7 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
 
   if (fields.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Antwort-Filter werden geladen…
-      </p>
+      <p className="text-sm text-muted-foreground">{t("filters.advanced.loading")}</p>
     )
   }
 
@@ -61,7 +83,7 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
     <div className="space-y-3">
       {filters.map((af, index) => {
         const meta = getFieldMeta(fields, af.questionId)
-        const opOptions = opsForKind(meta.kind)
+        const opOptions = opsForKindI18n(meta.kind, t)
 
         return (
           <div
@@ -69,13 +91,13 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
             className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"
           >
             <div className="space-y-1.5">
-              <Label className="text-xs">Feld</Label>
+              <Label className="text-xs">{t("filters.advanced.field")}</Label>
               <Select
                 value={af.questionId}
                 onValueChange={(q) => onQuestionChange(index, q)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Frage wählen" />
+                  <SelectValue placeholder={t("filters.advanced.chooseQuestion")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[min(24rem,70vh)]">
                   {fields.map((f) => (
@@ -87,7 +109,7 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Bedingung</Label>
+              <Label className="text-xs">{t("filters.advanced.condition")}</Label>
               <Select
                 value={af.op}
                 onValueChange={(op) =>
@@ -107,7 +129,7 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Wert</Label>
+              <Label className="text-xs">{t("filters.advanced.value")}</Label>
               {meta.kind === "boolean" ? (
                 <Select
                   value={String(af.value === "no" || af.value === false ? "no" : "yes")}
@@ -117,8 +139,8 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="yes">Ja</SelectItem>
-                    <SelectItem value="no">Nein</SelectItem>
+                    <SelectItem value="yes">{t("common.yes")}</SelectItem>
+                    <SelectItem value="no">{t("common.no")}</SelectItem>
                   </SelectContent>
                 </Select>
               ) : meta.kind === "number" ? (
@@ -149,7 +171,7 @@ export function AnswerFilterRows({ fields, filters, onChange }: Props) {
               variant="destructive"
               size="icon"
               className="shrink-0"
-              title="Entfernen"
+              title={t("filters.advanced.removeRow")}
               onClick={() => onChange(filters.filter((_, i) => i !== index))}
             >
               ✕

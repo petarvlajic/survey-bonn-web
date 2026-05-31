@@ -17,7 +17,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Download, Search, LayoutGrid, TableIcon, BarChart3, FileText, CheckCircle2, Clock, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { DashboardHeader } from "@/components/dashboard-header"
+import { AnswerCheckboxFilterPanel } from "@/components/answer-checkbox-filter-panel"
 import { AnswerFilterRows } from "@/components/answer-filter-rows"
+import {
+  checkboxKeysToAnswerFilters,
+  countActiveCheckboxFilters,
+  type CheckboxFilterKey,
+} from "@/lib/cardiac-checkbox-filters"
 import { CopyableText } from "@/components/copyable-text"
 import { useResponses } from "@/lib/hooks/use-responses"
 import { useSurveys } from "@/lib/hooks/use-survey"
@@ -30,15 +36,18 @@ import {
 } from "@/lib/types/answer-filters"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
+import { useI18n } from "@/lib/i18n/locale-context"
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [viewMode, setViewMode] = useState<"table" | "list">("table")
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [surveyFilter, setSurveyFilter] = useState("all")
-  const [dateFrom, setDateFrom] = useState("")
-  const [dateTo, setDateTo] = useState("")
+  const todayIso = () => new Date().toISOString().split("T")[0]
+  const [dateFrom, setDateFrom] = useState(todayIso)
+  const [dateTo, setDateTo] = useState(todayIso)
   const [pidFilter, setPidFilter] = useState("")
   const [hasSignatureFilter, setHasSignatureFilter] = useState<"all" | "signed" | "unsigned">("all")
   const [workflowFilter, setWorkflowFilter] = useState("all")
@@ -47,8 +56,12 @@ export default function DashboardPage() {
   const [sortBy, setSortBy] = useState<"createdAt" | "completedAt">("createdAt")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [filterFields, setFilterFields] = useState<FilterFieldMeta[]>([])
-  const [answerFilters, setAnswerFilters] = useState<AnswerFilter[]>([])
-  const [appliedAnswerFilters, setAppliedAnswerFilters] = useState<AnswerFilter[]>([])
+  const [checkedCheckboxKeys, setCheckedCheckboxKeys] = useState<Set<CheckboxFilterKey>>(
+    () => new Set()
+  )
+  const [advancedFilters, setAdvancedFilters] = useState<AnswerFilter[]>([])
+  const [appliedAdvancedFilters, setAppliedAdvancedFilters] = useState<AnswerFilter[]>([])
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   useEffect(() => {
     responsesAPI
@@ -56,7 +69,7 @@ export default function DashboardPage() {
       .then((fields) => {
         setFilterFields(fields)
         if (fields.length > 0) {
-          setAnswerFilters((prev) => {
+          setAdvancedFilters((prev) => {
             if (prev.length > 0) return prev
             const first = fields[0]
             return [
@@ -72,19 +85,27 @@ export default function DashboardPage() {
       .catch((e) => console.error("Failed to load filter fields", e))
   }, [])
 
+  const mergedAnswerFilters = useMemo(
+    () => [
+      ...checkboxKeysToAnswerFilters(checkedCheckboxKeys),
+      ...activeAnswerFilters(appliedAdvancedFilters),
+    ],
+    [checkedCheckboxKeys, appliedAdvancedFilters]
+  )
+
   const apiFilters = useMemo(
     () => ({
       page,
       sortBy,
       sortOrder,
       ...(statusFilter !== "all" && { status: statusFilter }),
-      ...(dateFrom && { completedAtFrom: dateFrom }),
-      ...(dateTo && { completedAtTo: dateTo }),
+      ...(dateFrom && { startDate: dateFrom }),
+      ...(dateTo && { endDate: dateTo }),
       ...(pidFilter.trim() && { pid: pidFilter.trim() }),
       ...(searchQuery.trim() && { search: searchQuery.trim() }),
       ...(workflowFilter !== "all" && { workflowStatus: workflowFilter }),
-      ...(appliedAnswerFilters.length > 0 && {
-        answerFilters: appliedAnswerFilters,
+      ...(mergedAnswerFilters.length > 0 && {
+        answerFilters: mergedAnswerFilters,
       }),
     }),
     [
@@ -97,7 +118,7 @@ export default function DashboardPage() {
       pidFilter,
       searchQuery,
       workflowFilter,
-      appliedAnswerFilters,
+      mergedAnswerFilters,
     ],
   )
 
@@ -111,7 +132,7 @@ export default function DashboardPage() {
       Boolean(pidFilter.trim()) ||
       Boolean(searchQuery.trim()) ||
       workflowFilter !== "all" ||
-      appliedAnswerFilters.length > 0,
+      mergedAnswerFilters.length > 0,
     [
       statusFilter,
       dateFrom,
@@ -119,7 +140,7 @@ export default function DashboardPage() {
       pidFilter,
       searchQuery,
       workflowFilter,
-      appliedAnswerFilters,
+      mergedAnswerFilters,
     ]
   )
   const { surveys } = useSurveys()
@@ -189,7 +210,11 @@ export default function DashboardPage() {
     return s
   }
 
-  const handleExportClient = () => {
+  const handleExportClient = async () => {
+    if (hasActiveServerFilters || mergedAnswerFilters.length > 0) {
+      await handleExportServer()
+      return
+    }
     const headers = [
       "ID",
       "PID",
@@ -228,15 +253,20 @@ export default function DashboardPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  const applyAnswerFilters = () => {
-    setAppliedAnswerFilters(activeAnswerFilters(answerFilters))
+  const onCheckboxFiltersChange = (keys: Set<CheckboxFilterKey>) => {
+    setCheckedCheckboxKeys(keys)
     setPage(1)
   }
 
-  const addAnswerFilterRow = () => {
+  const applyAdvancedFilters = () => {
+    setAppliedAdvancedFilters(activeAnswerFilters(advancedFilters))
+    setPage(1)
+  }
+
+  const addAdvancedFilterRow = () => {
     const first = filterFields[0]
     if (!first) return
-    setAnswerFilters((prev) => [
+    setAdvancedFilters((prev) => [
       ...prev,
       {
         questionId: first.questionId,
@@ -246,32 +276,38 @@ export default function DashboardPage() {
     ])
   }
 
-  const clearAnswerFilters = () => {
-    setAnswerFilters([])
-    setAppliedAnswerFilters([])
+  const clearAllAnswerFilters = () => {
+    setCheckedCheckboxKeys(new Set())
+    setAdvancedFilters([])
+    setAppliedAdvancedFilters([])
     setPage(1)
+  }
+
+  const buildServerExportParams = () => {
+    const params: {
+      draft?: boolean
+      completedAtFrom?: string
+      completedAtTo?: string
+      workflowStatus?: string
+      pid?: string
+      search?: string
+      answerFilters?: AnswerFilter[]
+    } = {}
+    if (statusFilter === "draft") params.draft = true
+    if (statusFilter === "completed") params.draft = false
+    if (dateFrom) params.completedAtFrom = dateFrom
+    if (dateTo) params.completedAtTo = dateTo
+    if (workflowFilter !== "all") params.workflowStatus = workflowFilter
+    if (pidFilter.trim()) params.pid = pidFilter.trim()
+    if (searchQuery.trim()) params.search = searchQuery.trim()
+    if (mergedAnswerFilters.length > 0) params.answerFilters = mergedAnswerFilters
+    return params
   }
 
   const handleExportServer = async () => {
     setExporting(true)
     try {
-      const params: {
-        draft?: boolean
-        completedAtFrom?: string
-        completedAtTo?: string
-        workflowStatus?: string
-        pid?: string
-        search?: string
-        answerFilters?: AnswerFilter[]
-      } = {}
-      if (statusFilter === "draft") params.draft = true
-      if (statusFilter === "completed") params.draft = false
-      if (dateFrom) params.completedAtFrom = dateFrom
-      if (dateTo) params.completedAtTo = dateTo
-      if (workflowFilter !== "all") params.workflowStatus = workflowFilter
-      if (pidFilter.trim()) params.pid = pidFilter.trim()
-      if (searchQuery.trim()) params.search = searchQuery.trim()
-      if (appliedAnswerFilters.length > 0) params.answerFilters = appliedAnswerFilters
+      const params = buildServerExportParams()
       const blob = await responsesAPI.exportCSV(Object.keys(params).length ? params : undefined)
       const url = window.URL.createObjectURL(blob as Blob)
       const a = document.createElement("a")
@@ -313,11 +349,10 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
               <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-                Survey responses
+                {t("dashboard.title")}
               </h1>
               <p className="max-w-xl text-muted-foreground leading-relaxed">
-                Filter by workflow status, PID, and dates — open a row for full detail,
-                signatures, and SHK follow-up.
+                {t("dashboard.subtitle")}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -325,7 +360,7 @@ export default function DashboardPage() {
                 className="font-medium shadow-sm"
                 onClick={() => router.push("/dashboard/survey/new")}
               >
-                New survey
+                {t("dashboard.newSurvey")}
               </Button>
               <Button
                 variant={viewMode === "table" ? "default" : "outline"}
@@ -344,23 +379,14 @@ export default function DashboardPage() {
                 <LayoutGrid className="h-4 w-4" />
               </Button>
               <Button
-                onClick={handleExportClient}
-                variant="outline"
-                className="border-border/60 shadow-none"
-                title="Export current filtered list"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button
-                onClick={handleExportServer}
+                onClick={() => void handleExportServer()}
                 variant="outline"
                 className="border-border/60 shadow-none"
                 disabled={exporting}
-                title="Export from server (status, dates, workflow, answer filters)"
+                title={t("dashboard.exportTitle")}
               >
                 <Download className="h-4 w-4 mr-2" />
-                {exporting ? "Exporting…" : "Export CSV (server)"}
+                {exporting ? t("dashboard.exporting") : t("dashboard.exportCsv")}
               </Button>
             </div>
           </div>
@@ -370,27 +396,27 @@ export default function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total (filtered)</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("dashboard.totalFiltered")}</CardTitle>
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{total}</div>
-                  <p className="text-xs text-muted-foreground">server filters (status, dates, PID, search, workflow, answers)</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.totalFilteredHint")}</p>
                 </CardContent>
               </Card>
               <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("dashboard.completed")}</CardTitle>
                   <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics.completed}</div>
-                  <p className="text-xs text-muted-foreground">on this page</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.onThisPage")}</p>
                 </CardContent>
               </Card>
               <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Drafts</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("dashboard.drafts")}</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -400,17 +426,17 @@ export default function DashboardPage() {
               </Card>
               <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Last 7 days</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("dashboard.last7Days")}</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics.last7}</div>
-                  <p className="text-xs text-muted-foreground">created (this page)</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.createdOnPage")}</p>
                 </CardContent>
               </Card>
               <Card className={surfaceCard}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">With signature</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("dashboard.withSignature")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics.withSig}</div>
@@ -424,8 +450,8 @@ export default function DashboardPage() {
           {!loading && chartData.some(d => d.count > 0) && (
             <Card className={surfaceCard}>
               <CardHeader>
-                <CardTitle>Responses by day</CardTitle>
-                <CardDescription>Last 14 days (from current page)</CardDescription>
+                <CardTitle>{t("dashboard.chartTitle")}</CardTitle>
+                <CardDescription>{t("dashboard.chartDesc")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer config={{ count: { label: "Responses" } }} className="h-[200px] w-full">
@@ -447,7 +473,7 @@ export default function DashboardPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or email..."
+                  placeholder={t("dashboard.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value)
@@ -458,20 +484,20 @@ export default function DashboardPage() {
               </div>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder={t("dashboard.filterStatus")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="all">{t("dashboard.allStatus")}</SelectItem>
+                  <SelectItem value="completed">{t("dashboard.statusCompleted")}</SelectItem>
+                  <SelectItem value="draft">{t("dashboard.statusDraft")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={surveyFilter} onValueChange={(v) => { setSurveyFilter(v); setPage(1) }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by survey" />
+                  <SelectValue placeholder={t("dashboard.filterSurvey")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Surveys</SelectItem>
+                  <SelectItem value="all">{t("dashboard.allSurveys")}</SelectItem>
                   {surveyTitles.map((title) => (
                     <SelectItem key={title} value={title}>{title}</SelectItem>
                   ))}
@@ -479,14 +505,14 @@ export default function DashboardPage() {
               </Select>
               <Input
                 type="date"
-                placeholder="From date"
+                placeholder={t("dashboard.dateFrom")}
                 value={dateFrom}
                 onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
                 className="min-w-0"
               />
               <Input
                 type="date"
-                placeholder="To date"
+                placeholder={t("dashboard.dateTo")}
                 value={dateTo}
                 onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
                 className="min-w-0"
@@ -494,7 +520,7 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Input
-                placeholder="Filter by PID..."
+                placeholder={t("dashboard.filterPid")}
                 value={pidFilter}
                 onChange={(e) => {
                   setPidFilter(e.target.value)
@@ -509,12 +535,12 @@ export default function DashboardPage() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Signature filter" />
+                  <SelectValue placeholder={t("dashboard.filterSignature")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All signatures</SelectItem>
-                  <SelectItem value="signed">Only signed</SelectItem>
-                  <SelectItem value="unsigned">Only unsigned</SelectItem>
+                  <SelectItem value="all">{t("dashboard.allSignatures")}</SelectItem>
+                  <SelectItem value="signed">{t("dashboard.onlySigned")}</SelectItem>
+                  <SelectItem value="unsigned">{t("dashboard.onlyUnsigned")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -525,66 +551,95 @@ export default function DashboardPage() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Workflow filter" />
+                  <SelectValue placeholder={t("dashboard.filterWorkflow")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All workflow states</SelectItem>
-                  <SelectItem value="patient_in_progress">Patient in progress</SelectItem>
-                  <SelectItem value="patient_completed">Patient completed</SelectItem>
-                  <SelectItem value="shk_in_progress">SHK in progress</SelectItem>
-                  <SelectItem value="pending_shk_followup">Pending SHK follow-up</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
+                  <SelectItem value="all">{t("dashboard.allWorkflow")}</SelectItem>
+                  <SelectItem value="patient_in_progress">{t("dashboard.workflowPatientInProgress")}</SelectItem>
+                  <SelectItem value="patient_completed">{t("dashboard.workflowPatientCompleted")}</SelectItem>
+                  <SelectItem value="shk_in_progress">{t("dashboard.workflowShkInProgress")}</SelectItem>
+                  <SelectItem value="pending_shk_followup">{t("dashboard.workflowPendingFollowup")}</SelectItem>
+                  <SelectItem value="closed">{t("dashboard.workflowClosed")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="mt-6 space-y-3 rounded-lg border border-primary/15 bg-primary/5 p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Filter nach Antworten (kombinierbar)
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Jedes Feld schränkt die Liste weiter ein (z.&nbsp;B. Brustbeschwerden = Ja, Schmerzintensität ≤ 5).
-                  Server-CSV enthält nur gefilterte Fälle.
-                </p>
-              </div>
-              <AnswerFilterRows
-                fields={filterFields}
-                filters={answerFilters}
-                onChange={setAnswerFilters}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addAnswerFilterRow}
-                  disabled={filterFields.length === 0}
-                >
-                  <Plus className="mr-1 h-4 w-4" />
-                  Filter hinzufügen
-                </Button>
-                <Button type="button" size="sm" onClick={applyAnswerFilters}>
-                  Filter anwenden
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAnswerFilters}
-                >
-                  Alle Filter löschen
-                </Button>
-                {appliedAnswerFilters.length > 0 && (
-                  <span className="self-center text-xs text-muted-foreground">
-                    {appliedAnswerFilters.length} aktive Antwort-Filter
-                  </span>
+            <div className="mt-6 space-y-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {t("dashboard.answerFiltersTitle")}
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                    {t("dashboard.answerFiltersDesc")}
+                  </p>
+                </div>
+                {(countActiveCheckboxFilters(checkedCheckboxKeys) > 0 ||
+                  appliedAdvancedFilters.length > 0) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllAnswerFilters}
+                  >
+                    {t("dashboard.clearAllFilters")}
+                  </Button>
                 )}
               </div>
+              <AnswerCheckboxFilterPanel
+                checkedKeys={checkedCheckboxKeys}
+                onChange={onCheckboxFiltersChange}
+                disabled={loading}
+              />
+              <div className="border-t border-border/60 pt-3">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => setShowAdvancedFilters((v) => !v)}
+                >
+                  {showAdvancedFilters ? "▼" : "▶"} {t("dashboard.advancedToggle")}
+                </button>
+                {showAdvancedFilters && (
+                  <div className="mt-3 space-y-3">
+                    <AnswerFilterRows
+                      fields={filterFields}
+                      filters={advancedFilters}
+                      onChange={setAdvancedFilters}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addAdvancedFilterRow}
+                        disabled={filterFields.length === 0}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        {t("dashboard.addCondition")}
+                      </Button>
+                      <Button type="button" size="sm" onClick={applyAdvancedFilters}>
+                        {t("dashboard.applyAdvanced")}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {mergedAnswerFilters.length > 0 && (
+                <p className="text-xs font-medium text-foreground">
+                  {t("dashboard.patientsShown")}{" "}
+                  <span className="text-primary">{total}</span>
+                  {appliedAdvancedFilters.length > 0 && (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      · {appliedAdvancedFilters.length} {t("dashboard.advancedRules")}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-4">
-              <span className="text-sm text-muted-foreground">Sort:</span>
+              <span className="text-sm text-muted-foreground">{t("dashboard.sort")}</span>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(v) => {
                 const [s, o] = v.split("-") as ["createdAt" | "completedAt", "asc" | "desc"]
                 setSortBy(s)
@@ -595,14 +650,17 @@ export default function DashboardPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="createdAt-desc">Newest first</SelectItem>
-                  <SelectItem value="createdAt-asc">Oldest first</SelectItem>
-                  <SelectItem value="completedAt-desc">Completed (newest)</SelectItem>
-                  <SelectItem value="completedAt-asc">Completed (oldest)</SelectItem>
+                  <SelectItem value="createdAt-desc">{t("dashboard.sortNewest")}</SelectItem>
+                  <SelectItem value="createdAt-asc">{t("dashboard.sortOldest")}</SelectItem>
+                  <SelectItem value="completedAt-desc">{t("dashboard.sortCompletedNewest")}</SelectItem>
+                  <SelectItem value="completedAt-asc">{t("dashboard.sortCompletedOldest")}</SelectItem>
                 </SelectContent>
               </Select>
               <span className="text-sm text-muted-foreground">
-                Showing {total === 0 ? 0 : pageStart}–{pageEnd} of {total}
+                {t("dashboard.showingRange")
+                  .replace("{from}", String(total === 0 ? 0 : pageStart))
+                  .replace("{to}", String(pageEnd))
+                  .replace("{total}", String(total))}
               </span>
               <div className="flex gap-1">
                 <Button variant="outline" size="icon" disabled={currentPage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
@@ -618,13 +676,13 @@ export default function DashboardPage() {
           {error && (
             <Card className="border-destructive/40 bg-destructive/10 p-4 shadow-sm">
               <p className="text-sm text-destructive">{error}</p>
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>Retry</Button>
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>{t("common.retry")}</Button>
             </Card>
           )}
 
           {loading && (
             <Card className="p-12">
-              <div className="text-center text-muted-foreground">Loading responses...</div>
+              <div className="text-center text-muted-foreground">{t("dashboard.loadingResponses")}</div>
             </Card>
           )}
 
@@ -635,17 +693,17 @@ export default function DashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>PID</TableHead>
-                      <TableHead>Workflow</TableHead>
-                      <TableHead>Lock</TableHead>
-                      <TableHead>Interviewer</TableHead>
-                      <TableHead>Interviewee</TableHead>
-                      <TableHead>Survey</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Signature</TableHead>
+                      <TableHead>{t("dashboard.tableId")}</TableHead>
+                      <TableHead>{t("dashboard.tablePid")}</TableHead>
+                      <TableHead>{t("dashboard.tableWorkflow")}</TableHead>
+                      <TableHead>{t("dashboard.tableLock")}</TableHead>
+                      <TableHead>{t("dashboard.tableInterviewer")}</TableHead>
+                      <TableHead>{t("dashboard.tableInterviewee")}</TableHead>
+                      <TableHead>{t("dashboard.tableSurvey")}</TableHead>
+                      <TableHead>{t("dashboard.tableStatus")}</TableHead>
+                      <TableHead>{t("dashboard.tableCreated")}</TableHead>
+                      <TableHead>{t("dashboard.tableCompleted")}</TableHead>
+                      <TableHead>{t("dashboard.tableSignature")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -664,11 +722,18 @@ export default function DashboardPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{item.workflowStatus ?? "patient_completed"}</Badge>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="outline">{item.workflowStatus ?? "patient_completed"}</Badge>
+                            {item.pathologicalFindingReport ? (
+                              <Badge className="bg-orange-500 text-white hover:bg-orange-600 border-orange-600">
+                                {t("dashboard.pathologicalFinding")}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={item.lockedBy ? "default" : "secondary"}>
-                            {item.lockedBy ? "Locked" : "Open"}
+                            {item.lockedBy ? t("common.locked") : t("common.open")}
                           </Badge>
                         </TableCell>
                         <TableCell>{item.interviewerName}</TableCell>
@@ -695,7 +760,7 @@ export default function DashboardPage() {
                         <TableCell className="text-sm">{formatDate(completedAt(item))}</TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {hasSignature(item) ? "Yes" : "No"}
+                            {hasSignature(item) ? t("common.yes") : t("common.no")}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -736,22 +801,27 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="outline">{item.workflowStatus ?? "patient_completed"}</Badge>
+                    {item.pathologicalFindingReport ? (
+                      <Badge className="bg-orange-500 text-white hover:bg-orange-600 border-orange-600">
+                        {t("dashboard.pathologicalFinding")}
+                      </Badge>
+                    ) : null}
                     <Badge variant={item.lockedBy ? "default" : "secondary"}>
-                      {item.lockedBy ? "Locked" : "Open"}
+                      {item.lockedBy ? t("common.locked") : t("common.open")}
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Survey</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t("dashboard.listSurvey")}</p>
                     <p className="text-sm">{item.surveyTitle}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Interviewer</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t("dashboard.listInterviewer")}</p>
                     <p className="text-sm">{item.interviewerName}</p>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
                     <span>{formatDate(item.createdAt ?? null)}</span>
                     {hasSignature(item) && (
-                      <Badge variant="outline" className="text-xs">Signed</Badge>
+                      <Badge variant="outline" className="text-xs">{t("common.signed")}</Badge>
                     )}
                   </div>
                 </Card>
@@ -763,11 +833,11 @@ export default function DashboardPage() {
           {!loading && total === 0 && (
             <Card className={`p-12 ${surfaceCard}`}>
               <div className="text-center space-y-2">
-                <p className="text-lg font-medium">No responses found</p>
+                <p className="text-lg font-medium">{t("dashboard.noResults")}</p>
                 <p className="text-sm text-muted-foreground">
                   {hasActiveServerFilters
-                    ? "Keine Treffer für die aktuellen Filter. Passen Sie die Filter an und klicken Sie erneut „Filter anwenden“."
-                    : "Try adjusting your filters or create a new survey."}
+                    ? t("dashboard.noResultsWithFilters")
+                    : t("dashboard.noResultsHint")}
                 </p>
               </div>
             </Card>

@@ -1,5 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react"
+import { screen, fireEvent } from "@testing-library/react"
 import DashboardPage from "@/app/dashboard/page"
+import { renderWithI18n } from "@/__tests__/test-utils"
+import { de } from "@/lib/i18n/messages/de"
 import type { SurveyResponse } from "@/lib/api/responses"
 
 const { exportCSVMock, getFilterFieldsMock } = vi.hoisted(() => ({
@@ -63,33 +65,42 @@ const mockResponses: SurveyResponse[] = [
   },
 ] as SurveyResponse[]
 
-vi.mock("@/lib/hooks/use-responses", () => ({
-  useResponses: () => ({
-    responses: mockResponses,
-    total: mockResponses.length,
+const useResponsesMock = vi.fn((filters?: { pid?: string; workflowStatus?: string }) => {
+  let list = [...mockResponses]
+  if (filters?.pid) list = list.filter((r) => r.pid === filters.pid)
+  if (filters?.workflowStatus) {
+    list = list.filter((r) => r.workflowStatus === filters.workflowStatus)
+  }
+  return {
+    responses: list,
+    total: list.length,
     page: 1,
     limit: 50,
     loading: false,
     error: null,
     refetch: vi.fn(),
-  }),
+  }
+})
+
+vi.mock("@/lib/hooks/use-responses", () => ({
+  useResponses: (filters: unknown) => useResponsesMock(filters),
 }))
 
 describe("DashboardPage analytics and filters", () => {
   it("renders PID column and values in table view", () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    expect(screen.getByText("PID")).toBeInTheDocument()
+    expect(screen.getByText(de.dashboard.tablePid)).toBeInTheDocument()
     expect(screen.getByText("PID-123")).toBeInTheDocument()
     expect(screen.getByText("PID-999")).toBeInTheDocument()
-    expect(screen.getByText("Workflow")).toBeInTheDocument()
+    expect(screen.getByText(de.dashboard.tableWorkflow)).toBeInTheDocument()
     expect(screen.getByText("shk_in_progress")).toBeInTheDocument()
   })
 
   it("filters responses by PID", () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    const pidInput = screen.getByPlaceholderText("Filter by PID...")
+    const pidInput = screen.getByPlaceholderText(de.dashboard.filterPid)
     fireEvent.change(pidInput, { target: { value: "PID-123" } })
 
     expect(screen.getByText("PID-123")).toBeInTheDocument()
@@ -97,83 +108,92 @@ describe("DashboardPage analytics and filters", () => {
   })
 
   it("filters responses by signature status", () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    const signatureSelect = screen.getByText("All signatures")
-    fireEvent.click(signatureSelect)
-    fireEvent.click(screen.getByText("Only signed"))
+    fireEvent.click(screen.getByText(de.dashboard.allSignatures))
+    fireEvent.click(screen.getByText(de.dashboard.onlySigned))
 
     expect(screen.getByText("PID-123")).toBeInTheDocument()
     expect(screen.queryByText("PID-999")).not.toBeInTheDocument()
   })
 
-  it("exports CSV with PID column and values", () => {
-    const blobMock = vi.fn()
-    ;(global as any).Blob = blobMock as any
+  it("exports CSV via server with current filters", async () => {
+    renderWithI18n(<DashboardPage />)
 
-    render(<DashboardPage />)
+    fireEvent.click(screen.getByTitle(de.dashboard.exportTitle))
 
-    fireEvent.click(screen.getByTitle("Export current filtered list"))
-
-    expect(blobMock).toHaveBeenCalled()
-    const [parts] = blobMock.mock.calls[0] as unknown[]
-    const csv = String((parts as unknown[])[0])
-
-    expect(csv).toContain("ID,PID,Workflow,Locked,Interviewer,Interviewee,Email,Survey,Status,Created,Completed,Signature")
-    expect(csv).toContain("PID-123")
-    expect(csv).toContain("PID-999")
+    expect(exportCSVMock).toHaveBeenCalled()
   })
 
   it("sends active filters to server export", async () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    fireEvent.change(screen.getByPlaceholderText("Search by name or email..."), {
+    fireEvent.change(screen.getByPlaceholderText(de.dashboard.searchPlaceholder), {
       target: { value: "Alice" },
     })
-    fireEvent.change(screen.getByPlaceholderText("Filter by PID..."), {
+    fireEvent.change(screen.getByPlaceholderText(de.dashboard.filterPid), {
       target: { value: "PID-123" },
     })
-    fireEvent.click(screen.getByTitle("Export from server (status, dates, workflow, answer filters)"))
+    fireEvent.click(screen.getByTitle(de.dashboard.exportTitle))
 
     expect(exportCSVMock).toHaveBeenCalled()
-    const args = exportCSVMock.mock.calls[0][0]
-    expect(args.search).toBe("Alice")
-    expect(args.pid).toBe("PID-123")
+    const args = exportCSVMock.mock.calls.at(-1)?.[0]
+    expect(args?.search).toBe("Alice")
+    expect(args?.pid).toBe("PID-123")
   })
 
   it("filters responses by workflow status", () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    fireEvent.click(screen.getByText("All workflow states"))
-    fireEvent.click(screen.getByText("Patient in progress"))
+    fireEvent.click(screen.getByText(de.dashboard.allWorkflow))
+    fireEvent.click(screen.getByText(de.dashboard.workflowPatientInProgress))
 
     expect(screen.getByText("PID-999")).toBeInTheDocument()
     expect(screen.queryByText("PID-123")).not.toBeInTheDocument()
   })
 
   it("filters responses by unsigned signature state", () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    fireEvent.click(screen.getByText("All signatures"))
-    fireEvent.click(screen.getByText("Only unsigned"))
+    fireEvent.click(screen.getByText(de.dashboard.allSignatures))
+    fireEvent.click(screen.getByText(de.dashboard.onlyUnsigned))
 
     expect(screen.getByText("PID-999")).toBeInTheDocument()
     expect(screen.queryByText("PID-123")).not.toBeInTheDocument()
   })
 
-  it("renders answer filter section and apply button", async () => {
-    render(<DashboardPage />)
-    expect(await screen.findByText("Filter nach Antworten (kombinierbar)")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Filter anwenden/i })).toBeInTheDocument()
+  it("renders checkbox answer filter panel", async () => {
+    renderWithI18n(<DashboardPage />)
+    expect(await screen.findByText(de.dashboard.answerFiltersTitle)).toBeInTheDocument()
+    expect(screen.getByText(de.filters.groups.chest)).toBeInTheDocument()
+    expect(screen.getByText(de.filters.noneActive)).toBeInTheDocument()
     expect(getFilterFieldsMock).toHaveBeenCalled()
   })
 
-  it("sends answerFilters to server export after apply", async () => {
-    render(<DashboardPage />)
-    await screen.findByText("Filter nach Antworten (kombinierbar)")
+  it("applies answerFilters immediately when checkbox is toggled", async () => {
+    renderWithI18n(<DashboardPage />)
+    await screen.findByText(de.dashboard.answerFiltersTitle)
 
-    fireEvent.click(screen.getByRole("button", { name: /Filter anwenden/i }))
-    fireEvent.click(screen.getByTitle("Export from server (status, dates, workflow, answer filters)"))
+    fireEvent.click(screen.getByText(de.filters.expandAll))
+    fireEvent.click(screen.getByLabelText(de.filters.items.hasChestComplaints))
+
+    const lastCall = useResponsesMock.mock.calls.at(-1)?.[0] as {
+      answerFilters?: Array<{ questionId: string; op: string; value: string }>
+    }
+    expect(lastCall?.answerFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ questionId: "hasChestComplaints", op: "eq", value: "yes" }),
+      ])
+    )
+  })
+
+  it("sends answerFilters to server export when checkbox active", async () => {
+    renderWithI18n(<DashboardPage />)
+    await screen.findByText(de.dashboard.answerFiltersTitle)
+
+    fireEvent.click(screen.getByText(de.filters.expandAll))
+    fireEvent.click(screen.getByLabelText(de.filters.items.hasChestComplaints))
+    fireEvent.click(screen.getByTitle(de.dashboard.exportTitle))
 
     expect(exportCSVMock).toHaveBeenCalled()
     const args = exportCSVMock.mock.calls.at(-1)?.[0]
@@ -185,18 +205,18 @@ describe("DashboardPage analytics and filters", () => {
   })
 
   it("sends status, workflow and date filters to server export", () => {
-    render(<DashboardPage />)
+    renderWithI18n(<DashboardPage />)
 
-    fireEvent.click(screen.getByText("All Status"))
-    fireEvent.click(screen.getByText("Draft"))
-    fireEvent.click(screen.getByText("All workflow states"))
-    fireEvent.click(screen.getByText("Patient in progress"))
+    fireEvent.click(screen.getByText(de.dashboard.allStatus))
+    fireEvent.click(screen.getByText(de.dashboard.statusDraft))
+    fireEvent.click(screen.getByText(de.dashboard.allWorkflow))
+    fireEvent.click(screen.getByText(de.dashboard.workflowPatientInProgress))
 
     const dateInputs = document.querySelectorAll('input[type="date"]')
     fireEvent.change(dateInputs[0], { target: { value: "2026-03-01" } })
     fireEvent.change(dateInputs[1], { target: { value: "2026-03-31" } })
 
-    fireEvent.click(screen.getByTitle("Export from server (status, dates, workflow, answer filters)"))
+    fireEvent.click(screen.getByTitle(de.dashboard.exportTitle))
 
     const args = exportCSVMock.mock.calls.at(-1)?.[0]
     expect(args.draft).toBe(true)

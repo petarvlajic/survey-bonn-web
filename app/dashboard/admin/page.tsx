@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ArrowLeft } from "lucide-react"
+import { useI18n } from "@/lib/i18n/locale-context"
 
 type RowUser = {
   id: string
@@ -36,6 +37,7 @@ type RowUser = {
 export default function AdminUsersPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { t } = useI18n()
   const [rows, setRows] = useState<RowUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,11 +54,11 @@ export default function AdminUsersPage() {
         e && typeof e === "object" && "response" in e
           ? (e as { response?: { data?: { error?: string } } }).response?.data?.error
           : undefined
-      setError(msg ?? "Zugriff oder Laden fehlgeschlagen.")
+      setError(msg ?? t("admin.loadFailed"))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (user?.role !== "admin") {
@@ -77,7 +79,7 @@ export default function AdminUsersPage() {
         e && typeof e === "object" && "response" in e
           ? (e as { response?: { data?: { error?: string } } }).response?.data?.error
           : undefined
-      setError(msg ?? "Rollenaktualisierung fehlgeschlagen.")
+      setError(msg ?? t("admin.roleUpdateFailed"))
     } finally {
       setBusyId(null)
     }
@@ -93,11 +95,11 @@ export default function AdminUsersPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Administracija</h1>
-            <p className="text-muted-foreground">Korisnički nalozi i uloge</p>
+            <h1 className="text-3xl font-bold">{t("admin.title")}</h1>
+            <p className="text-muted-foreground">{t("admin.subtitle")}</p>
           </div>
           <Button variant="outline" onClick={() => void fetchUsers()} disabled={loading}>
-            Osveži
+            {t("admin.refresh")}
           </Button>
         </div>
 
@@ -109,21 +111,19 @@ export default function AdminUsersPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Nalozi</CardTitle>
-            <CardDescription>
-              Samo <code className="text-xs">admin</code> može menjati ovu listu • uloge se persistuju na API‑ju.
-            </CardDescription>
+            <CardTitle>{t("admin.accounts")}</CardTitle>
+            <CardDescription>{t("admin.accountsDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Učitavanje…</p>
+              <p className="text-sm text-muted-foreground">{t("admin.loading")}</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Ime</TableHead>
-                    <TableHead>Rola</TableHead>
+                    <TableHead>{t("admin.email")}</TableHead>
+                    <TableHead>{t("admin.name")}</TableHead>
+                    <TableHead>{t("admin.role")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

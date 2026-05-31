@@ -17,6 +17,7 @@ export interface SurveyResponse {
   pid?: string
   birthDate?: string
   gender?: string
+  pathologicalFindingReport?: boolean
   surveyId: string
   surveyTitle: string
   interviewerName: string
@@ -104,11 +105,11 @@ export const responsesAPI = {
       delete params.status
     }
     if (params.startDate !== undefined) {
-      params.completedAtFrom = params.startDate as string
+      params.createdAtFrom = params.startDate as string
       delete params.startDate
     }
     if (params.endDate !== undefined) {
-      params.completedAtTo = params.endDate as string
+      params.createdAtTo = params.endDate as string
       delete params.endDate
     }
     if (params.limit === undefined) params.limit = 50
