@@ -16,6 +16,12 @@ import { ShkFollowUpForm } from "@/components/shk-follow-up-form"
 import { CopyableText } from "@/components/copyable-text"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { formatGenderLabel } from "@/lib/gender"
+import {
+  ECHO_MAIN_ROWS,
+  ECHO_OPTIONAL_ITEMS,
+  ECHO_OVERALL,
+  formatEchoMainValue,
+} from "@/lib/shk-echo-screening"
 
 function lockedByUserId(lockedBy: SurveyResponse["lockedBy"]): string | undefined {
   if (lockedBy == null || lockedBy === "") return undefined
@@ -403,6 +409,15 @@ export default function ResponseDetailsPage() {
                   <p>{response.intervieweePhone || "—"}</p>
                 </div>
               </div>
+              {response.intervieweeAddress?.trim() ? (
+                <div className="flex items-start gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Adresse</p>
+                    <p className="whitespace-pre-wrap">{response.intervieweeAddress}</p>
+                  </div>
+                </div>
+              ) : null}
               <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
@@ -457,6 +472,57 @@ export default function ResponseDetailsPage() {
               </CardContent>
             </Card>
           )}
+
+          {response.shkFollowUp?.echoScreening?.main ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>SHK Echo-Screening</CardTitle>
+                <CardDescription>Nachgespräch — Echokardiographie</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {ECHO_MAIN_ROWS.map((row) => (
+                  <div key={row.id} className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
+                    <span className="font-medium min-w-[10rem]">{row.categoryDe}</span>
+                    <span className="text-muted-foreground">
+                      {formatEchoMainValue(row.id, response.shkFollowUp!.echoScreening!.main[row.id])}
+                    </span>
+                  </div>
+                ))}
+                <Separator className="my-2" />
+                <p className="font-medium">Optional (Kurzcheck)</p>
+                {ECHO_OPTIONAL_ITEMS.map((item) => (
+                  <div key={item.id} className="flex justify-between gap-4">
+                    <span>{item.labelDe}</span>
+                    <span className="text-muted-foreground">
+                      {response.shkFollowUp!.echoScreening!.optional[item.id] ? "ja" : "nein"}
+                    </span>
+                  </div>
+                ))}
+                {response.shkFollowUp.echoScreening.comment?.trim() ? (
+                  <>
+                    <Separator className="my-2" />
+                    <p className="font-medium">Freitext / Kommentar</p>
+                    <p className="text-muted-foreground whitespace-pre-wrap">
+                      {response.shkFollowUp.echoScreening.comment}
+                    </p>
+                  </>
+                ) : null}
+                <Separator className="my-2" />
+                <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
+                  <span className="font-medium">Gesamtbeurteilung</span>
+                  <span className="text-muted-foreground">
+                    {ECHO_OVERALL.find((o) => o.id === response.shkFollowUp!.echoScreening!.overall)?.labelDe ??
+                      response.shkFollowUp.echoScreening.overall}
+                  </span>
+                </div>
+                {response.pathologicalFindingReport ? (
+                  <Badge className="bg-orange-500 text-white hover:bg-orange-600 border-orange-600 w-fit">
+                    Nachverfolgung ausgelöst
+                  </Badge>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
 
           {hasSignature && (
             <Card>

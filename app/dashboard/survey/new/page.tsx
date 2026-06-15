@@ -15,16 +15,49 @@ import { responsesAPI } from "@/lib/api/responses"
 import { useAutoSave } from "@/lib/hooks/use-auto-save"
 import { handleApiError } from "@/lib/utils/error-handler"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import { GENDER_VALUES, formatGenderLabel } from "@/lib/gender"
 
+const ACCOMPANYING_SYMPTOM_NONE = "keine/nein"
+
+const ACCOMPANYING_SYMPTOMS = [
+  "Luftnot / Atemnot (Dyspnoe)",
+  "verminderte körperliche Belastbarkeit",
+  "Herzklopfen / Herzrasen (Palpitationen)",
+  "Unregelmäßiger Puls",
+  "Schwindel oder Benommenheit",
+  "Bewusstlosigkeit (Synkope)",
+  "Wassereinlagerungen (Beine, Knöchel, Bauch)",
+  "Müdigkeit / Leistungsschwäche",
+  "Nachtschweiß",
+  "Übelkeit / Erbrechen",
+  "Husten oder Atemnot im Liegen",
+]
+
+const VALVE_TYPES = [
+  "Aortenklappenstenose",
+  "Aortenklappeninsuffizienz",
+  "Mitralklappenstenose",
+  "Mitralklappeninsuffizienz",
+  "Trikuspidalklappeninsuffizienz",
+]
+
+const PROCEDURES = [
+  "Herzklappen-OP",
+  "Koronare Bypass-OP",
+  "Herzkatheter ohne/mit Stentimplantation",
+  "Herzklappeneingriff über die Leiste",
+]
+
 type SurveyData = {
-  // Section 1: General Information
   name: string
   birthDate: string
   gender: string
   date: string
+  email: string
+  intervieweePhone: string
+  intervieweeAddress: string
 
-  // Section 2: Current Complaints
   hasChestComplaints: string
   painType: string[]
   painTypeOther: string
@@ -36,31 +69,20 @@ type SurveyData = {
   whatHelps: string[]
   whatWorsens: string[]
 
-  // Section 3: Accompanying Symptoms
   accompanyingSymptoms: string[]
 
-  // Section 4: Heart Valve Symptoms
-  breathlessnessOnExertion: string
-  breathlessnessSince: string
-  breathlessnessLying: string
-  swollenLegs: string
-  pulsingChest: string
-  earNoise: string
-  dizzinessSyncope: string
-  reducedCapacity: string
-  nightCough: string
-  palpitations: string
   valveDisease: string
   valveTypes: string[]
+  valveFreeText: string
 
-  // Section 5: Pre-existing Conditions
   heartDiseases: string[]
+  heartDiseasesFreeText: string
   riskFactors: string[]
 
-  // Section 6: Previous Examinations
   previousExams: string[]
+  previousExamsFreeText: string
+  medicationFreeText: string
 
-  // Signature
   signature: string
 }
 
@@ -76,6 +98,9 @@ export default function NewSurveyPage() {
     birthDate: "",
     gender: "",
     date: new Date().toISOString().split("T")[0],
+    email: "",
+    intervieweePhone: "",
+    intervieweeAddress: "",
     hasChestComplaints: "",
     painType: [],
     painTypeOther: "",
@@ -87,21 +112,15 @@ export default function NewSurveyPage() {
     whatHelps: [],
     whatWorsens: [],
     accompanyingSymptoms: [],
-    breathlessnessOnExertion: "",
-    breathlessnessSince: "",
-    breathlessnessLying: "",
-    swollenLegs: "",
-    pulsingChest: "",
-    earNoise: "",
-    dizzinessSyncope: "",
-    reducedCapacity: "",
-    nightCough: "",
-    palpitations: "",
     valveDisease: "",
     valveTypes: [],
+    valveFreeText: "",
     heartDiseases: [],
+    heartDiseasesFreeText: "",
     riskFactors: [],
     previousExams: [],
+    previousExamsFreeText: "",
+    medicationFreeText: "",
     signature: "",
   })
 
@@ -116,11 +135,38 @@ export default function NewSurveyPage() {
     setFormData({ ...formData, [field]: newValues })
   }
 
-  /** Build answers for API: skip empty strings/arrays so optional fields don't fail validation */
+  const handleAccompanyingSymptomChange = (symptom: string) => {
+    const current = formData.accompanyingSymptoms
+    let next: string[]
+    if (symptom === ACCOMPANYING_SYMPTOM_NONE) {
+      next = current.includes(ACCOMPANYING_SYMPTOM_NONE) ? [] : [ACCOMPANYING_SYMPTOM_NONE]
+    } else {
+      const withoutNone = current.filter((v) => v !== ACCOMPANYING_SYMPTOM_NONE)
+      next = withoutNone.includes(symptom)
+        ? withoutNone.filter((v) => v !== symptom)
+        : [...withoutNone, symptom]
+    }
+    setFormData({ ...formData, accompanyingSymptoms: next })
+  }
+
+  const surveyMeta = (data: SurveyData) => ({
+    surveyId: "survey-id",
+    surveyTitle: "Cardiac Health Survey",
+    interviewerName: "Current User",
+    intervieweeName: data.name,
+    intervieweeEmail: data.email,
+    intervieweePhone: data.intervieweePhone,
+    intervieweeAddress: data.intervieweeAddress || undefined,
+    birthDate: data.birthDate || undefined,
+    gender: data.gender || undefined,
+  })
+
+  /** Build answers for API: skip empty strings/arrays and top-level contact fields */
   const buildAnswers = (data: SurveyData, includeSignature = false) =>
     Object.entries(data)
       .filter(([key, value]) => {
         if (key === "signature") return includeSignature && value !== ""
+        if (key === "email" || key === "intervieweePhone" || key === "intervieweeAddress") return false
         if (value === "" || value === null || value === undefined) return false
         if (Array.isArray(value) && value.length === 0) return false
         return true
@@ -135,13 +181,7 @@ export default function NewSurveyPage() {
   const handleAutoSave = useCallback(async (data: SurveyData) => {
     try {
       await responsesAPI.create({
-        surveyId: "temp-id",
-        surveyTitle: "Cardiac Health Survey",
-        interviewerName: "Current User",
-        intervieweeName: data.name,
-        intervieweeEmail: "",
-        birthDate: data.birthDate || undefined,
-        gender: data.gender || undefined,
+        ...surveyMeta(data),
         answers: buildAnswers(data, false),
         status: "draft",
       })
@@ -165,13 +205,7 @@ export default function NewSurveyPage() {
       setError("")
 
       await responsesAPI.create({
-        surveyId: "survey-id",
-        surveyTitle: "Cardiac Health Survey",
-        interviewerName: "Current User",
-        intervieweeName: formData.name,
-        intervieweeEmail: "",
-        birthDate: formData.birthDate || undefined,
-        gender: formData.gender || undefined,
+        ...surveyMeta(formData),
         answers: buildAnswers(formData, false),
         status: "draft",
       })
@@ -191,13 +225,7 @@ export default function NewSurveyPage() {
       setError("")
 
       await responsesAPI.create({
-        surveyId: "survey-id",
-        surveyTitle: "Cardiac Health Survey",
-        interviewerName: "Current User",
-        intervieweeName: formData.name,
-        intervieweeEmail: "",
-        birthDate: formData.birthDate || undefined,
-        gender: formData.gender || undefined,
+        ...surveyMeta(formData),
         answers: buildAnswers(formData, true),
         status: "completed",
         signature: formData.signature,
@@ -213,6 +241,18 @@ export default function NewSurveyPage() {
   }
 
   const nextStep = () => {
+    if (currentStep === 1) {
+      const phone = formData.intervieweePhone.trim()
+      if (!phone || phone.replace(/\D/g, "").length < 6) {
+        setError("Bitte geben Sie eine gültige Telefonnummer ein.")
+        return
+      }
+      if (!formData.gender) {
+        setError("Bitte wählen Sie das Geschlecht.")
+        return
+      }
+      setError("")
+    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
       window.scrollTo({ top: 0, behavior: "smooth" })
@@ -310,6 +350,37 @@ export default function NewSurveyPage() {
                       </div>
                     ))}
                   </RadioGroup>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-Mail (optional)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="intervieweePhone">Handy / Telefon *</Label>
+                  <Input
+                    id="intervieweePhone"
+                    type="tel"
+                    value={formData.intervieweePhone}
+                    onChange={(e) => setFormData({ ...formData, intervieweePhone: e.target.value })}
+                    placeholder="+49 …"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="intervieweeAddress">Adresse (optional)</Label>
+                  <Textarea
+                    id="intervieweeAddress"
+                    value={formData.intervieweeAddress}
+                    onChange={(e) => setFormData({ ...formData, intervieweeAddress: e.target.value })}
+                    placeholder="Straße, PLZ Ort"
+                    rows={2}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="date">Datum (Date)</Label>
@@ -506,26 +577,25 @@ export default function NewSurveyPage() {
             <Card>
               <CardHeader>
                 <CardTitle>3. Begleitsymptome</CardTitle>
-                <CardDescription>Accompanying Symptoms</CardDescription>
+                <CardDescription>
+                  Liegen Begleitsymptome oder Beschwerden vor, die auf Herzerkrankungen hinweisen können?
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {[
-                  "Luftnot / Atemnot (Dyspnoe)",
-                  "Herzklopfen / Herzrasen (Palpitationen)",
-                  "Unregelmäßiger Puls",
-                  "Schwindel oder Benommenheit",
-                  "Bewusstlosigkeit (Synkope)",
-                  "Wassereinlagerungen (Beine, Knöchel, Bauch)",
-                  "Müdigkeit / Leistungsschwäche",
-                  "Nachtschweiß",
-                  "Übelkeit / Erbrechen",
-                  "Husten oder Atemnot im Liegen",
-                ].map((symptom) => (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="symptom-none"
+                    checked={formData.accompanyingSymptoms.includes(ACCOMPANYING_SYMPTOM_NONE)}
+                    onCheckedChange={() => handleAccompanyingSymptomChange(ACCOMPANYING_SYMPTOM_NONE)}
+                  />
+                  <Label htmlFor="symptom-none">{ACCOMPANYING_SYMPTOM_NONE}</Label>
+                </div>
+                {ACCOMPANYING_SYMPTOMS.map((symptom) => (
                   <div key={symptom} className="flex items-center space-x-2">
                     <Checkbox
                       id={`symptom-${symptom}`}
                       checked={formData.accompanyingSymptoms.includes(symptom)}
-                      onCheckedChange={() => handleCheckboxChange("accompanyingSymptoms", symptom)}
+                      onCheckedChange={() => handleAccompanyingSymptomChange(symptom)}
                     />
                     <Label htmlFor={`symptom-${symptom}`}>{symptom}</Label>
                   </div>
@@ -534,209 +604,50 @@ export default function NewSurveyPage() {
             </Card>
           )}
 
-          {/* Step 4: Heart Valve Symptoms */}
+          {/* Step 4: Herzklappenerkrankungen */}
           {currentStep === 4 && (
             <Card>
               <CardHeader>
-                <CardTitle>4. Symptome, die auf Herzklappenfehler hinweisen können</CardTitle>
-                <CardDescription>Symptoms indicating heart valve defects</CardDescription>
+                <CardTitle>4. Herzklappenerkrankungen</CardTitle>
+                <CardDescription>Sind Herzklappenerkrankungen bekannt?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <Label>Haben Sie Atemnot bei körperlicher Belastung?</Label>
-                  <RadioGroup
-                    value={formData.breathlessnessOnExertion}
-                    onValueChange={(value) => setFormData({ ...formData, breathlessnessOnExertion: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="breath-exertion-yes" />
-                      <Label htmlFor="breath-exertion-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="breath-exertion-no" />
-                      <Label htmlFor="breath-exertion-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                  {formData.breathlessnessOnExertion === "yes" && (
-                    <Input
-                      placeholder="Seit wann? (Since when?)"
-                      value={formData.breathlessnessSince}
-                      onChange={(e) => setFormData({ ...formData, breathlessnessSince: e.target.value })}
-                    />
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Haben Sie Atemnot im Liegen?</Label>
-                  <RadioGroup
-                    value={formData.breathlessnessLying}
-                    onValueChange={(value) => setFormData({ ...formData, breathlessnessLying: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="breath-lying-yes" />
-                      <Label htmlFor="breath-lying-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="breath-lying-no" />
-                      <Label htmlFor="breath-lying-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Haben Sie geschwollene Füße oder Beine bemerkt?</Label>
-                  <RadioGroup
-                    value={formData.swollenLegs}
-                    onValueChange={(value) => setFormData({ ...formData, swollenLegs: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="swollen-yes" />
-                      <Label htmlFor="swollen-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="swollen-no" />
-                      <Label htmlFor="swollen-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Spüren Sie ein Pochen oder Klopfen im Brustkorb?</Label>
-                  <RadioGroup
-                    value={formData.pulsingChest}
-                    onValueChange={(value) => setFormData({ ...formData, pulsingChest: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="pulsing-yes" />
-                      <Label htmlFor="pulsing-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="pulsing-no" />
-                      <Label htmlFor="pulsing-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Hören Sie ein Rauschen oder Pochen im Ohr?</Label>
-                  <RadioGroup
-                    value={formData.earNoise}
-                    onValueChange={(value) => setFormData({ ...formData, earNoise: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="ear-yes" />
-                      <Label htmlFor="ear-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="ear-no" />
-                      <Label htmlFor="ear-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Haben Sie Schwindel oder Bewusstseinsverluste?</Label>
-                  <RadioGroup
-                    value={formData.dizzinessSyncope}
-                    onValueChange={(value) => setFormData({ ...formData, dizzinessSyncope: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="dizzy-yes" />
-                      <Label htmlFor="dizzy-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="dizzy-no" />
-                      <Label htmlFor="dizzy-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Haben Sie verminderte körperliche Belastbarkeit bemerkt?</Label>
-                  <RadioGroup
-                    value={formData.reducedCapacity}
-                    onValueChange={(value) => setFormData({ ...formData, reducedCapacity: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="capacity-yes" />
-                      <Label htmlFor="capacity-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="capacity-no" />
-                      <Label htmlFor="capacity-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Leiden Sie unter nächtlichem Husten?</Label>
-                  <RadioGroup
-                    value={formData.nightCough}
-                    onValueChange={(value) => setFormData({ ...formData, nightCough: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="cough-yes" />
-                      <Label htmlFor="cough-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="cough-no" />
-                      <Label htmlFor="cough-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Haben Sie Herzklopfen oder Herzstolpern?</Label>
-                  <RadioGroup
-                    value={formData.palpitations}
-                    onValueChange={(value) => setFormData({ ...formData, palpitations: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="palp-yes" />
-                      <Label htmlFor="palp-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="palp-no" />
-                      <Label htmlFor="palp-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Wurde bei Ihnen bereits eine Herzklappenerkrankung festgestellt?</Label>
-                  <RadioGroup
-                    value={formData.valveDisease}
-                    onValueChange={(value) => setFormData({ ...formData, valveDisease: value })}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="valve-yes" />
-                      <Label htmlFor="valve-yes">Ja</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="valve-no" />
-                      <Label htmlFor="valve-no">Nein</Label>
-                    </div>
-                  </RadioGroup>
-                  {formData.valveDisease === "yes" && (
-                    <div className="space-y-2 pl-6">
-                      {[
-                        "Aortenklappenstenose",
-                        "Aortenklappeninsuffizienz",
-                        "Mitralklappenstenose",
-                        "Mitralklappeninsuffizienz",
-                        "Trikuspidalklappeninsuffizienz",
-                      ].map((valve) => (
-                        <div key={valve} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`valve-${valve}`}
-                            checked={formData.valveTypes.includes(valve)}
-                            onCheckedChange={() => handleCheckboxChange("valveTypes", valve)}
-                          />
-                          <Label htmlFor={`valve-${valve}`}>{valve}</Label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <RadioGroup
+                  value={formData.valveDisease}
+                  onValueChange={(value) => setFormData({ ...formData, valveDisease: value })}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="valve-yes" />
+                    <Label htmlFor="valve-yes">Ja</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="valve-no" />
+                    <Label htmlFor="valve-no">Nein</Label>
+                  </div>
+                </RadioGroup>
+                {formData.valveDisease === "yes" && (
+                  <div className="space-y-2 pl-2">
+                    {VALVE_TYPES.map((valve) => (
+                      <div key={valve} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`valve-${valve}`}
+                          checked={formData.valveTypes.includes(valve)}
+                          onCheckedChange={() => handleCheckboxChange("valveTypes", valve)}
+                        />
+                        <Label htmlFor={`valve-${valve}`}>{valve}</Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="valveFreeText">Freitext</Label>
+                  <Textarea
+                    id="valveFreeText"
+                    value={formData.valveFreeText}
+                    onChange={(e) => setFormData({ ...formData, valveFreeText: e.target.value })}
+                    placeholder="Weitere Angaben zu Herzklappenerkrankungen …"
+                    rows={3}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -771,6 +682,12 @@ export default function NewSurveyPage() {
                       </div>
                     ))}
                   </div>
+                  <Textarea
+                    value={formData.heartDiseasesFreeText}
+                    onChange={(e) => setFormData({ ...formData, heartDiseasesFreeText: e.target.value })}
+                    placeholder="Freitext — weitere Angaben zu Herzerkrankungen …"
+                    rows={3}
+                  />
                 </div>
 
                 <div className="space-y-3">
@@ -784,6 +701,8 @@ export default function NewSurveyPage() {
                       "Rauchen",
                       "Bewegungsmangel",
                       "familiäre Herzkrankheiten",
+                      "COPD",
+                      "Vorhofflimmern",
                     ].map((risk) => (
                       <div key={risk} className="flex items-center space-x-2">
                         <Checkbox
@@ -807,15 +726,8 @@ export default function NewSurveyPage() {
                 <CardTitle>6. Vorangegangene Untersuchungen / Eingriffe</CardTitle>
                 <CardDescription>Previous examinations and procedures</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {[
-                  "EKG",
-                  "Belastungs-EKG",
-                  "Herzultraschall (Echo)",
-                  "Herzkatheter",
-                  "Langzeit-EKG",
-                  "Blutuntersuchungen",
-                ].map((exam) => (
+              <CardContent className="space-y-4">
+                {PROCEDURES.map((exam) => (
                   <div key={exam} className="flex items-center space-x-2">
                     <Checkbox
                       id={`exam-${exam}`}
@@ -825,6 +737,26 @@ export default function NewSurveyPage() {
                     <Label htmlFor={`exam-${exam}`}>{exam}</Label>
                   </div>
                 ))}
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="previousExamsFreeText">Freitext</Label>
+                  <Textarea
+                    id="previousExamsFreeText"
+                    value={formData.previousExamsFreeText}
+                    onChange={(e) => setFormData({ ...formData, previousExamsFreeText: e.target.value })}
+                    placeholder="Weitere Untersuchungen / Eingriffe …"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="medicationFreeText">Besteht eine Dauermedikation?</Label>
+                  <Textarea
+                    id="medicationFreeText"
+                    value={formData.medicationFreeText}
+                    onChange={(e) => setFormData({ ...formData, medicationFreeText: e.target.value })}
+                    placeholder="Medikamente, Dosierung …"
+                    rows={3}
+                  />
+                </div>
               </CardContent>
             </Card>
           )}

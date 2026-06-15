@@ -22,16 +22,16 @@ describe("cardiac-checkbox-filters", () => {
 
   it("AND-combines multiple checked keys", () => {
     const filters = checkboxKeysToAnswerFilters([
-      "bool:palpitations",
+      "bool:valveDisease",
       "opt:heartDiseases:Herzinfarkt",
     ])
     expect(filters).toHaveLength(2)
   })
 
   it("lists checked items with labels", () => {
-    const items = listCheckedFilterItems(new Set(["bool:palpitations"]))
+    const items = listCheckedFilterItems(new Set(["bool:valveDisease"]))
     expect(items).toHaveLength(1)
-    expect(items[0].label).toMatch(/Herzklopfen/)
+    expect(items[0].label).toMatch(/Herzklapp/)
   })
 
   it("defines cardiac symptom groups", () => {

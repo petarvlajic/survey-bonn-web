@@ -1,12 +1,14 @@
 /**
  * Map survey questionId (API field name) → display label for Response Details.
- * Matches Cardiac Health Survey form labels.
+ * Matches Cardiac Health Survey form labels (Vollversion 260601).
  */
 export const SURVEY_FIELD_LABELS: Record<string, string> = {
   name: "Name",
   birthDate: "Geburtsdatum (Birth Date)",
   gender: "Geschlecht (Gender)",
   date: "Datum (Date)",
+  intervieweePhone: "Handy / Telefon",
+  intervieweeAddress: "Adresse",
   hasChestComplaints: "Beschwerden im Brustbereich?",
   painType: "Art der Schmerzen (Type of pain)",
   painTypeOther: "Sonstige Schmerzen (Other)",
@@ -17,22 +19,18 @@ export const SURVEY_FIELD_LABELS: Record<string, string> = {
   painRadiation: "Schmerzausstrahlung",
   whatHelps: "Was bessert die Beschwerden?",
   whatWorsens: "Was verschlechtert die Beschwerden?",
-  accompanyingSymptoms: "Begleitsymptome",
-  breathlessnessOnExertion: "Atemnot bei Belastung?",
-  breathlessnessSince: "Atemnot seit wann?",
-  breathlessnessLying: "Atemnot im Liegen?",
-  swollenLegs: "Geschwollene Füße/Beine?",
-  pulsingChest: "Pochen/Klopfen im Brustkorb?",
-  earNoise: "Rauschen/Pochen im Ohr?",
-  dizzinessSyncope: "Schwindel oder Bewusstseinsverluste?",
-  reducedCapacity: "Verminderte Belastbarkeit?",
-  nightCough: "Nächtlicher Husten?",
-  palpitations: "Herzklopfen oder Herzstolpern?",
-  valveDisease: "Herzklappenerkrankung festgestellt?",
+  accompanyingSymptoms:
+    "Begleitsymptome — Hinweise auf Herzerkrankungen",
+  valveDisease: "Sind Herzklappenerkrankungen bekannt?",
   valveTypes: "Art der Herzklappenerkrankung",
+  valveFreeText: "Herzklappenerkrankungen — Freitext",
   heartDiseases: "Bekannte Herzerkrankungen",
+  heartDiseasesFreeText: "Herzerkrankungen — Freitext",
   riskFactors: "Erkrankungen / Risikofaktoren",
-  previousExams: "Vorangegangene Untersuchungen",
+  previousExams: "Vorangegangene Untersuchungen / Eingriffe",
+  previousExamsFreeText: "Untersuchungen / Eingriffe — Freitext",
+  medicationFreeText: "Dauermedikation",
+  echoFreeText: "Freitext",
   signature: "Unterschrift (Signature)",
 }
 

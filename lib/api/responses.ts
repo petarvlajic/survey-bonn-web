@@ -1,6 +1,7 @@
 import { apiClient } from "./axios"
 import type { AnswerFilter } from "@/lib/types/answer-filters"
 import { activeAnswerFilters } from "@/lib/types/answer-filters"
+import type { EchoScreeningPayload } from "@/lib/shk-echo-screening"
 
 export interface ResponseAnswer {
   questionId: string
@@ -24,6 +25,7 @@ export interface SurveyResponse {
   intervieweeName: string
   intervieweeEmail: string
   intervieweePhone?: string
+  intervieweeAddress?: string
   answers: ResponseAnswer[]
   status: "draft" | "completed"
   signature?: string
@@ -41,6 +43,7 @@ export interface SurveyResponse {
   patientBoundedSubmit?: boolean
   shkFollowUp?: {
     answers?: Record<string, boolean>
+    echoScreening?: EchoScreeningPayload
     completedAt?: string
   }
   lockedAt?: string
@@ -180,8 +183,14 @@ export const responsesAPI = {
     return data
   },
 
-  completeFollowUp: async (id: string, answers: Record<string, boolean>) => {
-    const { data } = await apiClient.post(`/responses/${id}/followup/complete`, { answers })
+  completeFollowUp: async (
+    id: string,
+    payload: {
+      echoScreening: EchoScreeningPayload
+      pathologicalFindingReport?: boolean
+    }
+  ) => {
+    const { data } = await apiClient.post(`/responses/${id}/followup/complete`, payload)
     return data
   },
 }
