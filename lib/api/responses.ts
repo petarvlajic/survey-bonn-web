@@ -48,6 +48,9 @@ export interface SurveyResponse {
   }
   lockedAt?: string
   closedAt?: string
+  deletedAt?: string
+  deletedBy?: string | { _id?: string }
+  deletionReason?: string
   changeLog?: Array<{
     changedBy: string
     changedAt: string
@@ -137,8 +140,10 @@ export const responsesAPI = {
     return data
   },
 
-  delete: async (id: string) => {
-    const { data } = await apiClient.delete(`/responses/${id}`)
+  delete: async (id: string, deletionReason?: string) => {
+    const { data } = await apiClient.delete(`/responses/${id}`, {
+      data: { deletionReason }
+    })
     return data
   },
 
@@ -191,6 +196,11 @@ export const responsesAPI = {
     }
   ) => {
     const { data } = await apiClient.post(`/responses/${id}/followup/complete`, payload)
+    return data
+  },
+
+  restore: async (id: string) => {
+    const { data } = await apiClient.post(`/responses/${id}/restore`)
     return data
   },
 }

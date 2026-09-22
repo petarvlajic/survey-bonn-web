@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { ArrowLeft, Calendar, User, Mail, FileText, CheckCircle2, FileDown } from 'lucide-react'
+import { ArrowLeft, Calendar, User, Mail, FileText, CheckCircle2, FileDown, Trash2, RotateCcw } from 'lucide-react'
 import { useState } from "react"
 import { useResponse } from "@/lib/hooks/use-responses"
 import { responsesAPI } from "@/lib/api/responses"
@@ -55,6 +57,9 @@ export default function ResponseDetailsPage() {
   const [pdfLoading, setPdfLoading] = useState(false)
   const [workflowActionLoading, setWorkflowActionLoading] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteReason, setDeleteReason] = useState("")
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handlePrintPDF = () => {
     window.print()
@@ -117,6 +122,39 @@ export default function ResponseDetailsPage() {
           ? (e as { response?: { data?: { error?: string } } }).response?.data?.error
           : undefined
       setCloseError(msg ?? "Close failed")
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!id || !deleteReason.trim()) return
+    setDeleteError(null)
+    setWorkflowActionLoading(true)
+    try {
+      await responsesAPI.delete(id, deleteReason.trim())
+      setDeleteDialogOpen(false)
+      setDeleteReason("")
+      await refetch()
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? (e as { response?: { data?: { error?: string } } }).response?.data?.error
+          : undefined
+      setDeleteError(msg ?? "Delete failed")
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
+  const handleRestore = async () => {
+    if (!id) return
+    setWorkflowActionLoading(true)
+    try {
+      await responsesAPI.restore(id)
+      await refetch()
+    } catch (e) {
+      console.error("Restore failed", e)
     } finally {
       setWorkflowActionLoading(false)
     }
@@ -218,6 +256,9 @@ export default function ResponseDetailsPage() {
               {response.status}
             </Badge>
             <Badge variant="outline">{workflowStatus}</Badge>
+            {response.deletedAt && (
+              <Badge variant="destructive">Deleted</Badge>
+            )}
             <Button 
               onClick={handleDownloadPDF}
               variant="outline"
@@ -268,6 +309,30 @@ export default function ResponseDetailsPage() {
                 className="print:hidden"
               >
                 Close
+              </Button>
+            )}
+            {!response.deletedAt && (
+              <Button
+                onClick={() => setDeleteDialogOpen(true)}
+                variant="destructive"
+                size="sm"
+                disabled={workflowActionLoading}
+                className="print:hidden"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            )}
+            {response.deletedAt && (
+              <Button
+                onClick={handleRestore}
+                variant="outline"
+                size="sm"
+                disabled={workflowActionLoading}
+                className="print:hidden"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Restore
               </Button>
             )}
           </div>
@@ -583,7 +648,58 @@ export default function ResponseDetailsPage() {
               </CardContent>
             </Card>
           )}
+
+          {response.deletedAt && (
+            <Card className="border-amber-200 bg-amber-50 print:hidden">
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  <p className="font-medium text-amber-900">Deleted {formatDate(response.deletedAt)}</p>
+                  <p className="text-sm text-amber-800">
+                    <strong>Reason:</strong> {response.deletionReason || "No reason provided"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
+
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Response</DialogTitle>
+              <DialogDescription>
+                This will mark the response as deleted. You can restore it later.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Reason for deletion (required)"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                rows={3}
+              />
+              {deleteError && (
+                <p className="text-sm text-destructive">{deleteError}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={workflowActionLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={workflowActionLoading || !deleteReason.trim()}
+              >
+                {workflowActionLoading ? "Deleting…" : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )
