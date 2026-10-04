@@ -484,6 +484,13 @@ export default function ResponseDetailsPage() {
                 </div>
               ) : null}
               <div className="flex items-start gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Postleitzahl (PLZ)</p>
+                  <p>{response.intervieweePostalCode || "—"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Geburtsdatum (Birth Date)</p>

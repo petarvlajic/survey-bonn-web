@@ -26,6 +26,7 @@ export interface SurveyResponse {
   intervieweeEmail: string
   intervieweePhone?: string
   intervieweeAddress?: string
+  intervieweePostalCode?: string
   answers: ResponseAnswer[]
   status: "draft" | "completed"
   signature?: string

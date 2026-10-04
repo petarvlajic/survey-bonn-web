@@ -57,6 +57,7 @@ type SurveyData = {
   email: string
   intervieweePhone: string
   intervieweeAddress: string
+  intervieweePostalCode: string
 
   hasChestComplaints: string
   painType: string[]
@@ -101,6 +102,7 @@ export default function NewSurveyPage() {
     email: "",
     intervieweePhone: "",
     intervieweeAddress: "",
+    intervieweePostalCode: "",
     hasChestComplaints: "",
     painType: [],
     painTypeOther: "",
@@ -157,6 +159,7 @@ export default function NewSurveyPage() {
     intervieweeEmail: data.email,
     intervieweePhone: data.intervieweePhone,
     intervieweeAddress: data.intervieweeAddress || undefined,
+    intervieweePostalCode: data.intervieweePostalCode,
     birthDate: data.birthDate || undefined,
     gender: data.gender || undefined,
   })
@@ -166,7 +169,7 @@ export default function NewSurveyPage() {
     Object.entries(data)
       .filter(([key, value]) => {
         if (key === "signature") return includeSignature && value !== ""
-        if (key === "email" || key === "intervieweePhone" || key === "intervieweeAddress") return false
+        if (key === "email" || key === "intervieweePhone" || key === "intervieweeAddress" || key === "intervieweePostalCode") return false
         if (value === "" || value === null || value === undefined) return false
         if (Array.isArray(value) && value.length === 0) return false
         return true
@@ -249,6 +252,11 @@ export default function NewSurveyPage() {
       }
       if (!formData.gender) {
         setError("Bitte wählen Sie das Geschlecht.")
+        return
+      }
+      const postalCode = formData.intervieweePostalCode.trim()
+      if (!/^\d{5}$/.test(postalCode)) {
+        setError("Bitte geben Sie eine gültige Postleitzahl ein.")
         return
       }
       setError("")
@@ -378,8 +386,25 @@ export default function NewSurveyPage() {
                     id="intervieweeAddress"
                     value={formData.intervieweeAddress}
                     onChange={(e) => setFormData({ ...formData, intervieweeAddress: e.target.value })}
-                    placeholder="Straße, PLZ Ort"
+                    placeholder="Straße, Ort"
                     rows={2}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="intervieweePostalCode">Postleitzahl (PLZ) *</Label>
+                  <Input
+                    id="intervieweePostalCode"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={formData.intervieweePostalCode}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        intervieweePostalCode: e.target.value.replace(/\D/g, "").slice(0, 5),
+                      })
+                    }
+                    placeholder="53111"
+                    required
                   />
                 </div>
                 <div className="space-y-2">

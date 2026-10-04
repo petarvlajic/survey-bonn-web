@@ -9,6 +9,7 @@ export const SURVEY_FIELD_LABELS: Record<string, string> = {
   date: "Datum (Date)",
   intervieweePhone: "Handy / Telefon",
   intervieweeAddress: "Adresse",
+  intervieweePostalCode: "Postleitzahl (PLZ)",
   hasChestComplaints: "Beschwerden im Brustbereich?",
   painType: "Art der Schmerzen (Type of pain)",
   painTypeOther: "Sonstige Schmerzen (Other)",
