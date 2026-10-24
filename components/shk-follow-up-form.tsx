@@ -100,7 +100,7 @@ export function ShkFollowUpForm({ response, disabled, onComplete }: Props) {
       <CardHeader>
         <CardTitle>Echo-Screening (SHK)</CardTitle>
         <CardDescription>
-          Pro Kategorie genau eine Auswahl, optional Kurzcheck, Freitext und Gesamtbeurteilung. Danach werden
+          Pro Kategorie mindestens eine Auswahl (Mehrfachauswahl), optional Kurzcheck, Freitext und Gesamtbeurteilung. Danach werden
           Benachrichtigungen an die Patient/in ausgelöst.
         </CardDescription>
       </CardHeader>
