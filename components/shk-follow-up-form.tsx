@@ -15,6 +15,8 @@ import {
   ECHO_OPTIONAL_ITEMS,
   ECHO_OVERALL,
   getEchoRowOptions,
+  echoValues,
+  toggleEchoValue,
   type EchoMainRowId,
   type EchoMainValues,
   type EchoOptionalId,
@@ -48,7 +50,12 @@ export function ShkFollowUpForm({ response, disabled, onComplete }: Props) {
   useEffect(() => {
     const stored = response.shkFollowUp?.echoScreening
     if (!stored?.main) return
-    setMain(stored.main)
+    // Normalise legacy single-string rows to arrays.
+    setMain(
+      Object.fromEntries(
+        ECHO_MAIN_ROW_IDS.map((id) => [id, echoValues((stored.main as Record<string, unknown>)[id])])
+      ) as Partial<EchoMainValues>
+    )
     setOptional({ ...emptyOptional(), ...stored.optional })
     setOverall(stored.overall ?? "")
     setComment(stored.comment ?? "")
@@ -56,8 +63,7 @@ export function ShkFollowUpForm({ response, disabled, onComplete }: Props) {
   }, [response._id, response.shkFollowUp, response.pathologicalFindingReport])
 
   const mainComplete = ECHO_MAIN_ROW_IDS.every((id) => {
-    const v = main[id]
-    return typeof v === "string" && v.length > 0
+    return echoValues(main[id]).length > 0
   })
   const overallComplete = overall === "unremarkable" || overall === "needs_followup"
   const canSubmit = mainComplete && overallComplete
@@ -104,24 +110,27 @@ export function ShkFollowUpForm({ response, disabled, onComplete }: Props) {
           return (
             <div key={row.id} className="space-y-3 rounded-lg border p-4">
               <p className="font-medium">{row.categoryDe}</p>
-              <RadioGroup
-                value={main[row.id] ?? ""}
-                onValueChange={(v) =>
-                  setMain((prev) => ({
-                    ...prev,
-                    [row.id]: v as EchoMainValues[typeof row.id],
-                  }))
-                }
-              >
+              <p className="text-xs text-muted-foreground">Mehrfachauswahl möglich.</p>
+              <div className="space-y-2">
                 {options.map((opt) => (
                   <div key={opt.value} className="flex items-start space-x-2">
-                    <RadioGroupItem value={opt.value} id={`${row.id}-${opt.value}`} className="mt-1" />
+                    <Checkbox
+                      id={`${row.id}-${opt.value}`}
+                      className="mt-1"
+                      checked={echoValues(main[row.id]).includes(opt.value)}
+                      onCheckedChange={() =>
+                        setMain((prev) => ({
+                          ...prev,
+                          [row.id]: toggleEchoValue(echoValues(prev[row.id]), opt.value),
+                        }) as Partial<EchoMainValues>)
+                      }
+                    />
                     <Label htmlFor={`${row.id}-${opt.value}`} className="font-normal leading-snug">
                       {opt.labelDe}
                     </Label>
                   </div>
                 ))}
-              </RadioGroup>
+              </div>
             </div>
           )
         })}
