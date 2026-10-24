@@ -18,13 +18,14 @@ export type EchoValveValue = "unauffaellig" | "stenose" | "insuffizienz" | "auff
 export type EchoTricuspidValue = "unauffaellig" | "insuffizienz" | "auffaellig"
 export type EchoAortaValue = "unauffaellig" | "dilatiert"
 
+/** Every row is multi-select; "unauffaellig" is exclusive. */
 export type EchoMainValues = {
-  lv_function: EchoBinaryValue
-  wall_motion: EchoBinaryValue
-  aortic_valve: EchoValveValue
-  mitral_valve: EchoValveValue
-  tricuspid_valve: EchoTricuspidValue
-  ascending_aorta: EchoAortaValue
+  lv_function: EchoBinaryValue[]
+  wall_motion: EchoBinaryValue[]
+  aortic_valve: EchoValveValue[]
+  mitral_valve: EchoValveValue[]
+  tricuspid_valve: EchoTricuspidValue[]
+  ascending_aorta: EchoAortaValue[]
 }
 
 export const ECHO_BINARY_LABELS: Record<
@@ -93,12 +94,12 @@ export type EchoScreeningPayload = {
 export function validEchoScreeningFixture(): EchoScreeningPayload {
   return {
     main: {
-      lv_function: "unauffaellig",
-      wall_motion: "unauffaellig",
-      aortic_valve: "unauffaellig",
-      mitral_valve: "unauffaellig",
-      tricuspid_valve: "unauffaellig",
-      ascending_aorta: "unauffaellig",
+      lv_function: ["unauffaellig"],
+      wall_motion: ["unauffaellig"],
+      aortic_valve: ["unauffaellig"],
+      mitral_valve: ["unauffaellig"],
+      tricuspid_valve: ["unauffaellig"],
+      ascending_aorta: ["unauffaellig"],
     },
     optional: {
       pericardial_effusion: false,
@@ -127,7 +128,21 @@ export function getEchoRowOptions(id: EchoMainRowId): readonly { value: string; 
   return ECHO_AORTA_OPTIONS
 }
 
-export function formatEchoMainValue(id: EchoMainRowId, value: string): string {
-  const opt = getEchoRowOptions(id).find((o) => o.value === value)
-  return opt?.labelDe ?? value
+export function formatEchoMainValue(id: EchoMainRowId, value: unknown): string {
+  return echoValues(value)
+    .map((v) => getEchoRowOptions(id).find((o) => o.value === v)?.labelDe ?? v)
+    .join("; ")
+}
+
+/** Stored/API value for a row: array, or a single string from older data. */
+export function echoValues(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string")
+  return typeof v === "string" && v ? [v] : []
+}
+
+/** Toggle one option in a multi-select row; "unauffaellig" is exclusive. */
+export function toggleEchoValue(current: readonly string[], value: string): string[] {
+  if (current.includes(value)) return current.filter((v) => v !== value)
+  if (value === "unauffaellig") return ["unauffaellig"]
+  return [...current.filter((v) => v !== "unauffaellig"), value]
 }
